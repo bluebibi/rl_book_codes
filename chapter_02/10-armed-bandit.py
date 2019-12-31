@@ -54,45 +54,60 @@ class Testbed(object):
         )
         return msg
 
-class Strategy(Enum):
+
+class ActionSelectionStrategy(Enum):
     greedy = 0
     epsilon_greedy = 1
     ucb = 2
     gradient = 3
 
+
+class ValueUpdateStrategy(Enum):
+    sample_average = 0
+    incremental_sample_average = 1
+    constant_step_size = 2
+    gradient_with_baseline = 3
+    gradient_without_baseline = 4
+
+
 ################################################################
 # 테스트베드 위에서 환경과 상호작용하는 에이전트
-class Agent(object):
-    def __init__(self, strategy, num_arms, epsilon=0.0, ucb_param=None):
-        self.strategy = strategy
+class Bandit(object):
+    def __init__(self, num_arms,
+                 action_selection_strategy, value_update_strategy,
+                 epsilon=0.0, ucb_param=0.0, constant_step_size=0.0):
         self.num_arms = num_arms    # 밴딧이 지닌 암의 개수
+        self.action_selection_strategy = action_selection_strategy
+        self.value_update_strategy = value_update_strategy
 
-        self.indices = np.arange(num_arms)
+        self.indices = np.arange(self.num_arms)
         self.time_step = 0
+        self.count_of_actions = np.zeros(self.num_arms)  # 행동별 수행 횟수
+        self.q_estimation = np.zeros(self.num_arms)   # 행동별 추정 가치
 
-        if self.strategy == Strategy.greedy:
+        ### ACTION SELECTION STRATEGY
+        if self.action_selection_strategy == ActionSelectionStrategy.greedy:
             self.epsilon = 0.0
-        elif self.strategy == Strategy.epsilon_greedy:
+        elif self.action_selection_strategy == ActionSelectionStrategy.epsilon_greedy:
             self.epsilon = epsilon
         else:
             pass
 
-        if self.strategy == Strategy.ucb:
+        if self.action_selection_strategy == ActionSelectionStrategy.ucb:
             self.ucb_param = ucb_param
 
-        if self.strategy == Strategy.gradient:
+        if self.action_selection_strategy == ActionSelectionStrategy.gradient:
             self.action_prob = np.zeros(num_arms)
 
-        self.count_of_actions = np.zeros(num_arms)  # 행동별 수행 횟수
-        self.average_reward = np.zeros(num_arms)
-        self.q_estimation = np.zeros(num_arms)   # 행동별 추정 가치
+        ### VALUE UPDATE STRATEGY
+        if self.value_update_strategy == ValueUpdateStrategy.sample_average:
+            self.sum_of_reward = np.zeros(num_arms)
 
-    # 그래프의 범주에 활용할 에이전트 전략 이름 문자열 반환
-    def __str__(self):
-        if self.epsilon == 0:
-            return "Greedy"
-        else:
-            return "Epsilon Greedy [Epsilon = {0}]".format(self.epsilon)
+        if self.value_update_strategy == ValueUpdateStrategy.constant_step_size:
+            self.constant_step_size = constant_step_size
+
+        if self.value_update_strategy == ValueUpdateStrategy.gradient_with_baseline:
+            self.average_reward = np.zeros(num_arms)
 
     # Epsilon 탐욕적 선택 방법으로 행동 선택
     # 만약 Epsilon 값이 0이면 단순한 탐욕적 방법으로 행동이 선택됨
@@ -100,18 +115,7 @@ class Agent(object):
         self.time_step = time_step
         rand_prob = np.random.random()  # 0 ~ 1 사이의 임의의 값이 샘플링됨
 
-        if self.strategy == Strategy.ucb:
-            ucb_estimation = self.q_estimation + \
-                             self.ucb_param * np.sqrt(np.log(self.time_step + 1) / (self.count_of_actions + 1e-5))
-            q_best = np.max(ucb_estimation)
-            return np.random.choice(np.where(ucb_estimation == q_best)[0])
-
-        if self.strategy == Strategy.gradient:
-            exp_est = np.exp(self.q_estimation)
-            self.action_prob = exp_est / np.sum(exp_est)
-            return np.random.choice(self.indices, p=self.action_prob)
-
-        if self.strategy == Strategy.greedy or self.strategy == Strategy.epsilon_greedy:
+        if self.action_selection_strategy in [ActionSelectionStrategy.greedy, ActionSelectionStrategy.epsilon_greedy]:
             if rand_prob < self.epsilon:
                 selected_action = np.random.choice(self.num_arms)  # 임의의 행동 선택
             # Greedy Method
@@ -123,6 +127,17 @@ class Agent(object):
                 selected_action = np.random.choice(np.where(self.q_estimation == q_best)[0])
             return selected_action
 
+        if self.action_selection_strategy == ActionSelectionStrategy.ucb:
+            ucb_estimation = self.q_estimation + \
+                             self.ucb_param * np.sqrt(np.log(self.time_step + 1) / (self.count_of_actions + 1e-5))
+            q_best = np.max(ucb_estimation)
+            return np.random.choice(np.where(ucb_estimation == q_best)[0])
+
+        if self.action_selection_strategy == ActionSelectionStrategy.gradient:
+            exp_est = np.exp(self.q_estimation)
+            self.action_prob = exp_est / np.sum(exp_est)
+            return np.random.choice(self.indices, p=self.action_prob)
+
     # 받아낸 보상 값을 통하여 추정 가치 갱신
     def step(self, selected_action, testbed):
         # 보상은 정규 분포(평균: q_*(at), 표준편차: 1)로 부터 샘플링함
@@ -132,8 +147,25 @@ class Agent(object):
         self.average_reward += (reward - self.average_reward) / self.time_step
 
         # 행동의 추정 가치 갱신
-        if self.sample_averages:
-            self.q_estimation =
+        if self.value_update_strategy == ValueUpdateStrategy.sample_average:
+            self.sum_of_reward[selected_action] += reward  # 보상을 누적함
+            self.q_estimation[selected_action] = self.sum_of_reward[selected_action] / self.count_of_actions[selected_action]
+
+        if self.value_update_strategy == ValueUpdateStrategy.incremental_sample_average:
+            self.q_estimation[selected_action] += (reward - self.q_estimation[selected_action]) / self.count_of_actions[selected_action]
+
+        if self.value_update_strategy == ValueUpdateStrategy.constant_step_size:
+            self.q_estimation[selected_action] += (reward - self.q_estimation[selected_action]) * self.constant_step_size
+
+        if self.value_update_strategy in [ValueUpdateStrategy.gradient_with_baseline, ValueUpdateStrategy.gradient_without_baseline]:
+            one_hot = np.zeros(self.num_arms)
+            one_hot[selected_action] = 1
+
+            if self.value_update_strategy == ValueUpdateStrategy.gradient_with_baseline:
+                baseline = self.average_reward
+            else:
+                baseline = 0
+            self.q_estimation += self.constant_step_size * (reward - baseline) * (one_hot - self.action_prob)
 
         return reward
 
@@ -147,39 +179,36 @@ class Agent(object):
 ################################################################
 # 에이전트가 상호작용하는 환경 클래스
 class Environment(object):
-    def __init__(self, testbed, agents, max_time_steps, num_iterations):
+    def __init__(self, testbed, bandits, max_runs, max_time_steps):
         self.testbed = testbed
-        self.agents = agents
-
+        self.bandits = bandits
+        self.max_runs = max_runs
         self.max_time_steps = max_time_steps
-        self.num_iterations = num_iterations
 
     # 테스트 수행
     def play(self):
         # 각 에이전트 및 각 타입 스텝별로 누적 보상을 저장하는 배열
-        scores = np.zeros((self.max_time_steps, len(self.agents)))
+        cumulative_rewards = np.zeros((len(self.bandits), self.max_runs, self.max_time_steps))
 
         # 각 에이전트 및 각 타입 스텝별로 최적 행동 비율을 저장하는 배열
-        optimal_actions = np.zeros((self.max_time_steps, len(self.agents)))
+        optimal_actions = np.zeros((len(self.bandits), self.max_runs, self.max_time_steps))
 
         # 각 시행별로 루프를 수행
-        for iteration in range(self.num_iterations):
+        for run in range(self.max_runs):
             # 매 100번의 시행마다 출력 시행 횟수 출력
-            if (iteration % 100) == 0:
-                print("Completed Iterations: {0}".format(iteration))
+            if (run % 100) == 0:
+                print("Completed Runs: {0}".format(run))
 
             # 테스트베드와 모든 에이전트 초기화
             self.testbed.reset()
-            for agent in self.agents:
-                agent.reset()
 
             # 각 타입 스텝별로 루프를 수행
             for time_step in range(self.max_time_steps):
-                for agent_idx, agent in enumerate(self.agents):
-                    selected_action = agent.action(time_step)
+                for bandit_idx, bandit in enumerate(self.bandits):
+                    selected_action = bandit.action(time_step)
 
                     # 에이전트의 추정 가치 갱신
-                    reward = agent.step(selected_action, self.testbed)
+                    reward = bandit.step(selected_action, self.testbed)
 
                     # 누적 보상 --> 스코어 (그래프 1에 표현됨)
                     scores[time_step, agent_idx] += reward
