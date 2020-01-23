@@ -72,7 +72,7 @@ def draw_image(image):
 
 
 # GRID_WORLD 첫번째 예제
-def figure_3_2():
+def grid_world_bellman_equation():
     # 모든 값이 0으로 채워진 5x5 맵 생성, 가치 함수로 해석
     value_function = np.zeros((WORLD_SIZE, WORLD_SIZE))
 
@@ -101,7 +101,7 @@ def figure_3_2():
 
 
 # GRID_WORLD 두번째 예제
-def figure_3_5():
+def grid_world_value_iteration():
     # 모든 값이 0으로 채워진 5x5 맵  생성, 가치 함수로 해석
     value_function = np.zeros((WORLD_SIZE, WORLD_SIZE))
 
@@ -135,5 +135,5 @@ if __name__ == '__main__':
         os.makedirs('images/')
 
     # GRID_WORLD 실행
-    figure_3_2()
-    figure_3_5()
+    grid_world_bellman_equation()
+    grid_world_value_iteration()
