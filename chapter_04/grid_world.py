@@ -101,7 +101,7 @@ def compute_state_value(in_place=True, discounting_rate=1.0):
     return new_state_values, iteration
 
 
-def figure_4_1():
+def grid_world_policy_improvement():
     # 동일 장소(in-place) 전략 기반으로 생성한 가치 함수와
     # 비동일 장소(out-place)으로 생성한 가치 함수가 결국 동일하게 수렴함을 보이기 위해
     # 각각의 경우를 수행하고 결과를 이미지로 저장
@@ -127,4 +127,4 @@ def figure_4_1():
 
 # MAIN
 if __name__ == '__main__':
-    figure_4_1()
+    grid_world_policy_improvement()
