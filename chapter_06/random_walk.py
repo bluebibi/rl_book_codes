@@ -121,10 +121,10 @@ def rms_errors():
         total_errors = np.zeros(episodes)
         if i < len(td_alphas):
             method = 'TD(0)'
-            linestyle = 'solid'
+            linestyle = '-'
         else:
             method = 'MC'
-            linestyle = 'dashdot'
+            linestyle = '-.'
 
         for _ in tqdm(range(total_runs)):
             errors = []
