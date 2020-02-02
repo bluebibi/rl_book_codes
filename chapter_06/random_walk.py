@@ -35,11 +35,13 @@ def temporal_difference(values, alpha=0.1, batch=False):
     rewards = [0]
     while True:
         old_state = state
+
         # np.random.binomial의 첫번째 인수 n은 시행 횟수를 의미, n=1 이므로 1개의 값이 샘플링됨
         if np.random.binomial(n=1, p=0.5) == LEFT_ACTION:
             state -= 1
         else:
             state += 1
+
         # 일단 모든 보상은 0으로 설정됨
         reward = 0
         trajectory.append(state)
@@ -47,8 +49,10 @@ def temporal_difference(values, alpha=0.1, batch=False):
         # TD 갱신 수행
         if not batch:
             values[old_state] += alpha * (reward + values[state] - values[old_state])
+
         if state == 6 or state == 0:
             break
+
         rewards.append(reward)
 
     if batch:
@@ -69,7 +73,9 @@ def constant_alpha_monte_carlo(values, alpha=0.1, batch=False):
             state -= 1
         else:
             state += 1
+
         trajectory.append(state)
+
         if state == 6:
             returns = 1.0
             break
