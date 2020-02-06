@@ -175,10 +175,10 @@ def monte_carlo_on_policy(episodes):
     for _ in tqdm(range(0, episodes)):
         # 플레이어 타깃 정책으로만 블랙 잭 게임을 진행하며 학습
         _, reward, player_experience_trajectory = play_black_jack(target_policy_player)
-        for (usable_ace, player_cards_sum, dealer_card), _ in player_experience_trajectory:
+        for (usable_ace_player, player_cards_sum, dealer_card), _ in player_experience_trajectory:
             player_cards_sum -= 12
             dealer_card -= 1
-            if usable_ace:
+            if usable_ace_player:
                 states_usable_ace_count[player_cards_sum, dealer_card] += 1
                 states_usable_ace[player_cards_sum, dealer_card] += reward
             else:
@@ -283,6 +283,7 @@ def mc_on_policy():
     plt.subplots_adjust(wspace=0.1, hspace=0.2)
     axes = axes.flatten()
 
+    sns.set(font_scale=4)
     for state, title, axis in zip(states, titles, axes):
         fig = sns.heatmap(np.flipud(state), cmap="YlGnBu", ax=axis, xticklabels=range(1, 11),
                           yticklabels=list(reversed(range(12, 22))))
@@ -318,6 +319,7 @@ def mc_exploring_start():
     plt.subplots_adjust(wspace=0.1, hspace=0.2)
     axes = axes.flatten()
 
+    sns.set(font_scale=4)
     for image, title, axis in zip(images, titles, axes):
         fig = sns.heatmap(np.flipud(image), cmap="YlGnBu", ax=axis, xticklabels=range(1, 11),
                           yticklabels=list(reversed(range(12, 22))))
@@ -344,6 +346,7 @@ def mc_off_policy():
     error_weighted_sampling /= runs
 
     # 학습 결과를 이미지로 정리하여 저장하기 위한 코드
+    sns.set(font_scale=1)
     plt.plot(error_ordinary_sampling, label='Ordinary Importance Sampling')
     plt.plot(error_weighted_sampling, label='Weighted Importance Sampling')
     plt.xlabel('Episodes (log scale)', fontsize=10)
