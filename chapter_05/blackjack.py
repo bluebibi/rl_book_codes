@@ -10,15 +10,15 @@ mpl.rcParams['axes.unicode_minus'] = False
 
 # 가능한 행동들: 히트, 스탠드
 HIT = 0    # 새 카드 요청(히트).
-STAND = 1  # 행동 종료(stand, 책에서는 stick).
-ACTIONS = [HIT, STAND]
+STICK = 1  # 카드 요청 종료.
+ACTIONS = [HIT, STICK]
 
 # 플레이어의 전략
-# 현재 카드의 총합이 20, 21인 경우 STAND. 그 외엔 HIT
+# 현재 카드의 총합이 20, 21인 경우 STICK. 그 외엔 HIT
 POLICY_OF_PLAYER = np.zeros(22, dtype=np.int)
 for i in range(12, 20):
     POLICY_OF_PLAYER[i] = HIT
-POLICY_OF_PLAYER[20] = POLICY_OF_PLAYER[21] = STAND
+POLICY_OF_PLAYER[20] = POLICY_OF_PLAYER[21] = STICK
 
 
 # 플레이어의 타깃 정책(target policy, off-policy에서 개선에 사용되는 정책)의 함수 형태
@@ -29,7 +29,7 @@ def target_policy_player(usable_ace_player, player_sum, dealer_card):
 # 플레이어의 행위 정책(behavior policy, off-policy에서 행동 선택을 위한 정책)의 함수 형태
 def behavior_policy_player(usable_ace_player, player_sum, dealer_card):
     if np.random.binomial(1, 0.5) == 1:
-        return STAND
+        return STICK
     return HIT
 
 
@@ -38,7 +38,7 @@ POLICY_OF_DEALER = np.zeros(22)
 for i in range(12, 17):
     POLICY_OF_DEALER[i] = HIT
 for i in range(17, 22):
-    POLICY_OF_DEALER[i] = STAND
+    POLICY_OF_DEALER[i] = STICK
 
 
 # 새로운 카드 획득
@@ -121,7 +121,7 @@ def play_black_jack(policy_of_player, initial_state=None, initial_action=None):
         # 중요도 샘플링(Importance Sampling)을 위하여 플레이어의 경험 궤적을 추적
         player_experience_trajectory.append([(usable_ace_player, player_cards_sum, dealer_card1), action])
 
-        if action == STAND:
+        if action == STICK:
             break
         elif action == HIT:
             new_card = get_card()
@@ -147,7 +147,7 @@ def play_black_jack(policy_of_player, initial_state=None, initial_action=None):
     # 딜러의 차례
     while True:
         action = POLICY_OF_DEALER[dealer_cards_sum]
-        if action == STAND:
+        if action == STICK:
             break
         
         new_card = get_card()
@@ -173,46 +173,6 @@ def play_black_jack(policy_of_player, initial_state=None, initial_action=None):
         return state, 0, player_experience_trajectory
     else:
         return state, -1, player_experience_trajectory
-
-
-def mc_on_policy():
-    states_usable_ace_1, states_no_usable_ace_1 = monte_carlo_on_policy(10000)
-    states_usable_ace_2, states_no_usable_ace_2 = monte_carlo_on_policy(500000)
-
-    # 학습 결과를 이미지로 정리해서 저장하기 위한 코드
-    states = [states_usable_ace_1,
-              states_usable_ace_2,
-              states_no_usable_ace_1,
-              states_no_usable_ace_2]
-
-    # 에이스 카드 사용 가능과 에피소드 횟수가 상이
-    titles = ['Usable Ace, 10,000 에피소드',
-              'Usable Ace, 500,000 에피소드',
-              'No Usable Ace, 10,000 에피소드',
-              'No Usable Ace, 500,000 에피소드']
-
-    _, axes = plt.subplots(2, 2, figsize=(40, 30))
-    plt.subplots_adjust(wspace=0.15, hspace=0.4)
-    axes = axes.flatten()
-
-    sns.set(font_scale=4)
-    for state, title, axis in zip(states, titles, axes):
-        fig = sns.heatmap(
-            np.flipud(state),
-            cmap="YlGnBu",
-            ax=axis,
-            xticklabels=range(1, 11),
-            yticklabels=list(reversed(range(12, 22))),
-            annot_kws={"size": 20},
-            vmin=-1.0,
-            vmax=1.0
-        )
-        fig.set_ylabel('플레이어 카드 합', fontsize=50)
-        fig.set_xlabel('공개된 딜러 카드', fontsize=50)
-        fig.set_title(title, fontsize=50, fontweight='bold')
-
-    plt.savefig('images/monte_carlo_on_policy.png')
-    plt.close()
 
 
 # On-Policy로 작성된 몬테카를로 방법
@@ -255,7 +215,7 @@ def monte_carlo_es(episodes):
         values_ = state_action_values[player_cards_sum, dealer_card, usable_ace, :] / state_action_pair_count[player_cards_sum, dealer_card, usable_ace, :]
         return np.random.choice([action_ for action_, value_ in enumerate(values_) if value_ == np.max(values_)])
 
-    # episodes 회의 에피소드 반복
+    # episodes번의 에피소드 반복
     for episode in tqdm(range(episodes)):
         # 에피소드 마다 초기 설정은 무작위로 정한다
         initial_state = [bool(np.random.choice([0, 1])),
@@ -334,48 +294,98 @@ def mc_exploring_start():
               state_value_usable_ace,
               action_no_usable_ace,
               state_value_no_usable_ace]
-    titles = ['Optimal policy with usable Ace',
-              'Optimal value with usable Ace',
-              'Optimal policy without usable Ace',
-              'Optimal value without usable Ace']
+
+    titles = ['최적 정책 with usable Ace',
+              '최적 가치 with usable Ace',
+              '최적 정책 without usable Ace',
+              '최적 가치 without usable Ace']
 
     _, axes = plt.subplots(2, 2, figsize=(40, 30))
-    plt.subplots_adjust(wspace=0.1, hspace=0.2)
+    plt.subplots_adjust(wspace=0.15, hspace=0.4)
     axes = axes.flatten()
 
     sns.set(font_scale=4)
     for image, title, axis in zip(images, titles, axes):
-        fig = sns.heatmap(np.flipud(image), cmap="YlGnBu", ax=axis, xticklabels=range(1, 11),
-                          yticklabels=list(reversed(range(12, 22))))
-        fig.set_ylabel('player sum', fontsize=60)
-        fig.set_xlabel('dealer showing', fontsize=50)
+        fig = sns.heatmap(
+            np.flipud(image),
+            cmap="YlGnBu",
+            ax=axis,
+            xticklabels=range(1, 11),
+            yticklabels=list(reversed(range(12, 22)))
+        )
+        fig.set_ylabel('플레이어 카드 합', fontsize=50)
+        fig.set_xlabel('공개된 딜러 카드', fontsize=50)
         fig.set_title(title, fontsize=50, fontweight='bold')
 
     plt.savefig('images/monte_carlo_exploring_start.png')
     plt.close()
 
 
+def mc_on_policy():
+    states_usable_ace_1, states_no_usable_ace_1 = monte_carlo_on_policy(10000)
+    states_usable_ace_2, states_no_usable_ace_2 = monte_carlo_on_policy(500000)
+
+    # 학습 결과를 이미지로 정리해서 저장하기 위한 코드
+    states = [states_usable_ace_1,
+              states_usable_ace_2,
+              states_no_usable_ace_1,
+              states_no_usable_ace_2]
+
+    # 에이스 카드 사용 가능과 에피소드 횟수가 상이
+    titles = ['Usable Ace, 10,000 에피소드',
+              'Usable Ace, 500,000 에피소드',
+              'No Usable Ace, 10,000 에피소드',
+              'No Usable Ace, 500,000 에피소드']
+
+    _, axes = plt.subplots(2, 2, figsize=(40, 30))
+    plt.subplots_adjust(wspace=0.15, hspace=0.4)
+    axes = axes.flatten()
+
+    sns.set(font_scale=4)
+    for state, title, axis in zip(states, titles, axes):
+        fig = sns.heatmap(
+            np.flipud(state),
+            cmap="YlGnBu",
+            ax=axis,
+            xticklabels=range(1, 11),
+            yticklabels=list(reversed(range(12, 22))),
+            annot_kws={"size": 20},
+            vmin=-1.0,
+            vmax=1.0
+        )
+        fig.set_ylabel('플레이어 카드 합', fontsize=50)
+        fig.set_xlabel('공개된 딜러 카드', fontsize=50)
+        fig.set_title(title, fontsize=50, fontweight='bold')
+
+    plt.savefig('images/monte_carlo_on_policy.png')
+    plt.close()
+
+
 # Off-Policy 몬테 카를로 방법
 def mc_off_policy():
+    plt.figure(figsize=(7, 7))
+    plt.rcParams["font.size"] = 16
     # 변수들 초기화
     true_value = -0.27726
     episodes, runs = 10000, 100
     error_ordinary_sampling = np.zeros(episodes)
     error_weighted_sampling = np.zeros(episodes)
+
     for _ in tqdm(range(0, runs)):
         ordinary_importance_sampling_, weighted_importance_sampling_ = monte_carlo_off_policy(episodes)
         # 제곱 오차 계산 (일반 중요도 샘플링, 가중치 중요도 샘플링)
         error_ordinary_sampling += np.power(ordinary_importance_sampling_ - true_value, 2)
         error_weighted_sampling += np.power(weighted_importance_sampling_ - true_value, 2)
+
     error_ordinary_sampling /= runs
     error_weighted_sampling /= runs
 
     # 학습 결과를 이미지로 정리하여 저장하기 위한 코드
-    sns.set(font_scale=1)
-    plt.plot(error_ordinary_sampling, label='Ordinary Importance Sampling')
-    plt.plot(error_weighted_sampling, label='Weighted Importance Sampling')
-    plt.xlabel('Episodes (log scale)', fontsize=10)
-    plt.ylabel('Mean square error', fontsize=10)
+    plt.plot(error_ordinary_sampling, label='일반 중요도 샘플링')
+    plt.plot(error_weighted_sampling, label='가중치 중요도 샘플링')
+    plt.xlabel('애피소드 (log scale)')
+    plt.ylabel('MSE (Mean square error)')
+    plt.ylim(-0.5, 5)
     plt.xscale('log')
     plt.legend()
 
