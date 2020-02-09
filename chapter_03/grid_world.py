@@ -3,6 +3,10 @@ import numpy as np
 import os
 from matplotlib.table import Table
 
+# 이미지 저장 경로 확인 및 생성
+if not os.path.exists('images/'):
+    os.makedirs('images/')
+
 GRID_HEIGHT = 5
 GRID_WIDTH = 5
 
@@ -137,10 +141,6 @@ def grid_world_optimal_values():
 
 # MAIN
 if __name__ == '__main__':
-    # 이미지 저장 경로 확인 및 생성
-    if not os.path.exists('images/'):
-        os.makedirs('images/')
-
     value_function = np.zeros((GRID_HEIGHT, GRID_WIDTH))
     draw_image(np.round(value_function, decimals=0))
     plt.savefig('images/empty_grid_world.png')
