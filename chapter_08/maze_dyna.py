@@ -7,7 +7,7 @@ import heapq
 from copy import deepcopy
 import random
 
-from chapter_08.maze import Maze
+from chapter_08.maze import Maze, ChangingMaze
 
 plt.rcParams["font.family"] = 'NanumBarunGothic'
 plt.rcParams["font.size"] = 12
@@ -72,9 +72,9 @@ class DynaQParams:
 
 
 # choose an action based on epsilon-greedy algorithm
-def choose_action(state, q_value, maze):
+def choose_action(state, q_value, dyna_maze):
     if np.random.binomial(1, DynaQParams.epsilon) == 1:
-        return np.random.choice(maze.ACTIONS)
+        return np.random.choice(dyna_maze.ACTIONS)
     else:
         values = q_value[state[0], state[1], :]
         return np.random.choice([action for action, value in enumerate(values) if value == np.max(values)])
@@ -91,59 +91,54 @@ class SimpleModel:
             self.model[state] = dict()
         self.model[state][action] = [reward, next_state]
 
-    # 저장해 둔 경험 샘플들에서 임으로 선택하여 반환
+    # 저장해 둔 경험 샘플들에서 임으로 선택하여 반환험
     def sample(self):
         state = random.choice(list(self.model.keys()))
         action = random.choice(list(self.model[state].keys()))
         reward, next_state = self.model[state][action]
-        return state, action, next_state, reward
+        return state, action, reward, next_state
 
 
-# Time-based model for planning in Dyna-Q+
+# Dyna-Q+를 위한 시간 기반 모델
 class TimeModel:
-    # @maze: the maze instance. Indeed it's not very reasonable to give access to maze to the model.
-    # @timeWeight: also called kappa, the weight for elapsed time in sampling reward, it need to be small
-    def __init__(self, maze, time_weight=1e-4):
+    # @all_actions: 모든 행동 집합 [UP, DOWN, LEFT, RIGHT]
+    # @time_weight: 샘플링된 보상에 대하여 경과 시간에 대한 가중치
+    def __init__(self, all_actions, time_weight=1e-4):
         self.model = dict()
 
-        # track the total time
+        # 전체 타임 스텝 진행 기록
         self.time = 0
-
         self.time_weight = time_weight
-        self.maze = maze
+        self.all_actions = all_actions
 
-    # feed the model with previous experience
+    # 경험 샘플 저장
     def store(self, state, action, reward, next_state):
-        state = deepcopy(state)
-        next_state = deepcopy(next_state)
         self.time += 1
-        if state not in self.model.keys():
+
+        if state not in self.model:
             self.model[state] = dict()
 
-            # Actions that had never been tried before from a state were allowed to be considered in the planning step
-            for action_ in self.maze.ACTIONS:
+            # 임의의 상태에 대하여 선택되어지지 않은 행동들에 대해서도 계획 단계에 고려가 되도록 함
+            for action_ in self.all_actions:
                 if action_ != action:
-                    # Such actions would lead back to the same state with a reward of zero
-                    # Notice that the minimum time stamp is 1 instead of 0
-                    self.model[state][action_] = [list(state), 0, 1]
+                    # 그러한 행동들은 행동 수행 이후에 상태가 변동 없으며 보상은 0로 설정
+                    # 타임 스텝의 최소값은 0이 아니라 1
+                    self.model[state][action_] = [0, state, 1]
 
-        self.model[state][action] = [list(next_state), reward, self.time]
+        self.model[state][action] = [reward, next_state, self.time]
 
-    # randomly sample from previous experience
+    # 저장해 둔 경험 샘플들에서 임으로 선택하여 반환
     def sample(self):
-        state_index = np.random.choice(range(len(self.model.keys())))
-        state = list(self.model)[state_index]
-        action_index = np.random.choice(range(len(self.model[state].keys())))
-        action = list(self.model[state])[action_index]
-        next_state, reward, time = self.model[state][action]
+        state = random.choice(list(self.model.keys()))
+        action = random.choice(list(self.model[state].keys()))
+        reward, next_state, time = self.model[state][action]
 
-        # adjust reward with elapsed time since last vist
+        # 모델에 기록된 방문 시각과 현재 시각 사이의 차가 클 수록,
+        # 즉 오래전에 기록된 모델 정보일 수록 reward가 커지도록 조정함.
+        # 따라서, 오래전에 경험해보고 최근에 경험해보지 못한 상태-행동 쌍이 좀 더 자주 발현되도록 유도함
         reward += self.time_weight * np.sqrt(self.time - time)
 
-        state = deepcopy(state)
-        next_state = deepcopy(next_state)
-
-        return list(state), action, list(next_state), reward
+        return state, action, reward, next_state
 
 
 # Model containing a priority queue for Prioritized Sweeping
@@ -191,54 +186,55 @@ class PriorityModel(SimpleModel):
         return predecessors
 
 
-# play for an episode for Dyna-Q algorithm
-# @q_value: state action pair values, will be updated
-# @model: model instance for planning
-# @maze: a maze instance containing all information about the environment
-# @DynaQParams: several params for the algorithm
-def dyna_q(q_value, model, maze):
-    state = maze.START_STATE
+# Dyna-Q 알고리즘의 각 에피소드 별 학습
+# @q_value: 행동 가치 테이블, dyna_q 함수 수행 후 값이 갱신 됨
+# @model: 계획시 사용할 모델
+# @dyna_maze: 미로 환경
+def dyna_q(q_value, model, dyna_maze):
+    state = dyna_maze.START_STATE
     steps = 0
-    while state not in maze.GOAL_STATES:
-        # track the steps
+    cumulative_rewards = 0.0
+    while state not in dyna_maze.GOAL_STATES:
+        # 타임 스텝 기록
         steps += 1
 
-        # get action
-        action = choose_action(state, q_value, maze)
+        # 행동 얻어오기
+        action = choose_action(state, q_value, dyna_maze)
 
-        # take action
-        next_state, reward = maze.step(state, action)
+        # 행동 수행후
+        reward, next_state = dyna_maze.step(state, action)
 
-        # Q-Learning update
+        # Q-러닝 갱신
         target = reward + DynaQParams.gamma * np.max(q_value[next_state[0], next_state[1], :])
         q_value[state[0], state[1], action] += DynaQParams.alpha * (target - q_value[state[0], state[1], action])
 
-        # store the model with experience
+        # 경험 샘플을 모델에 저장 (모델 구성)
         model.store(state, action, reward, next_state)
 
-        # sample experience from the model
+        # 모델로 부터 샘플 얻어오면서 Q-계획 반복 수행
         for t in range(0, DynaQParams.planning_steps):
-            state_, action_, next_state_, reward_ = model.sample()
+            state_, action_, reward_, next_state_ = model.sample()
             target = reward_ + DynaQParams.gamma * np.max(q_value[next_state_[0], next_state_[1], :])
             q_value[state_[0], state_[1], action_] += DynaQParams.alpha * (target - q_value[state_[0], state_[1], action_])
 
         state = next_state
+        cumulative_rewards += reward
 
-        # check whether it has exceeded the step limit
-        if steps > maze.max_steps:
+        # 최대 스텝 체크
+        if steps > dyna_maze.max_steps:
             break
 
-    return steps
+    return steps, cumulative_rewards
 
 
 # play for an episode for prioritized sweeping algorithm
 # @q_value: state action pair values, will be updated
 # @model: model instance for planning
-# @maze: a maze instance containing all information about the environment
+# @dyna_maze: a dyna_maze instance containing all information about the environment
 # @DynaQParams: several params for the algorithm
 # @return: # of backups during this episode
-def prioritized_sweeping(q_value, model, maze):
-    state = maze.START_STATE
+def prioritized_sweeping(q_value, model, dyna_maze):
+    state = dyna_maze.START_STATE
 
     # track the steps in this episode
     steps = 0
@@ -246,14 +242,14 @@ def prioritized_sweeping(q_value, model, maze):
     # track the backups in planning phase
     backups = 0
 
-    while state not in maze.GOAL_STATES:
+    while state not in dyna_maze.GOAL_STATES:
         steps += 1
 
         # get action
-        action = choose_action(state, q_value, maze)
+        action = choose_action(state, q_value, dyna_maze)
 
         # take action
-        next_state, reward = maze.step(state, action)
+        reward, next_state = dyna_maze.step(state, action)
 
         # feed the model with experience
         model.store(state, action, reward, next_state)
@@ -328,8 +324,16 @@ def draw_image(dyna_maze, q_value, run, planning_step, episode):
     plt.savefig('images/maze_action_values_{0}_{1}_{2}.png'.format(run, planning_step, episode))
     plt.close()
 
+    # for i in range(dyna_maze.MAZE_HEIGHT):
+    #     print("---------------------------------")
+    #     out = '| '
+    #     for j in range(dyna_maze.MAZE_WIDTH):
+    #         t = ["{0:.1f}".format(x) for x in q_value[i][j]]
+    #         out += str("{0}".format(t)) + ' | '
+    #     print(out)
+    # print("---------------------------------\n")
 
-# DynaMaze, use 10 runs instead of 30 runs
+
 def maze_dyna_q():
     # set up an instance for DynaMaze
     dyna_maze = Maze()
@@ -347,7 +351,8 @@ def maze_dyna_q():
             model = SimpleModel()
             for episode in range(episodes):
                 #print('run:', run, 'planning step:', planning_step, 'episode:', episode)
-                steps[i, episode] += dyna_q(q_value, model, dyna_maze)
+                steps_, _ = dyna_q(q_value, model, dyna_maze)
+                steps[i, episode] += steps_
                 if run == 0 and planning_step in [0, 30] and episode in [0, 1]:
                     draw_image(dyna_maze, q_value, run, planning_step, episode)
 
@@ -366,100 +371,93 @@ def maze_dyna_q():
     plt.close()
 
 
-# wrapper function for changing maze
-# @maze: a maze instance
-# @dynaParams: several parameters for dyna algorithms
-def changing_maze(maze):
-
-    # set up max steps
-    max_steps = maze.max_steps
-
-    # track the cumulative rewards
-    rewards = np.zeros((DynaQParams.runs, 2, max_steps))
+# @dyna_maze: a dyna_maze instance
+def maze_dyna_q_2(dyna_maze):
+    # 누적 보상을 기록하는 자료 구조
+    cumulative_rewards = np.zeros((DynaQParams.runs, len(DynaQParams.methods), dyna_maze.max_steps))
 
     for run in tqdm(range(DynaQParams.runs)):
-        # set up models
-        models = [SimpleModel(), TimeModel(maze, time_weight=DynaQParams.time_weight)]
+        # 두 개의 모델 설정
+        models = [SimpleModel(), TimeModel(dyna_maze.ACTIONS, time_weight=DynaQParams.time_weight)]
 
-        # initialize state action values
-        q_values = [np.zeros(maze.q_size), np.zeros(maze.q_size)]
+        # 두 개의 모델별 행동 가치 초기화
+        q_values = [np.zeros(dyna_maze.q_size), np.zeros(dyna_maze.q_size)]
 
-        for i in range(len(DynaQParams.methods)):
-            # print('run:', run, DynaQParams.methods[i])
-
+        for method_idx in range(len(DynaQParams.methods)):
+            # print('run:', run, DynaQParams.methods[method_idx])
             # set old obstacles for the maze
-            maze.obstacles = maze.old_obstacles
+            dyna_maze.obstacles = dyna_maze.original_obstacles
 
             steps = 0
             last_steps = steps
-            while steps < max_steps:
+            while steps < dyna_maze.max_steps:
                 # play for an episode
-                steps += dyna_q(q_values[i], models[i], maze)
+                steps_, cumulative_rewards_ = dyna_q(q_values[method_idx], models[method_idx], dyna_maze)
+                steps += steps_
 
                 # update cumulative rewards
-                rewards[run, i, last_steps: steps] = rewards[run, i, last_steps]
-                rewards[run, i, min(steps, max_steps - 1)] = rewards[run, i, last_steps] + 1
+                cumulative_rewards[run, method_idx, last_steps: steps] = cumulative_rewards[run, method_idx, last_steps]
+                cumulative_rewards[run, method_idx, min(steps, dyna_maze.max_steps - 1)] = cumulative_rewards[run, method_idx, last_steps] + cumulative_rewards_
                 last_steps = steps
 
-                if steps > maze.obstacle_switch_time:
-                    # change the obstacles
-                    maze.obstacles = maze.new_obstacles
+                if steps > dyna_maze.obstacle_switch_time:
+                    # 장애물 구성 변경
+                    dyna_maze.obstacles = dyna_maze.new_obstacles
+
+                # print(DynaQParams.methods[method_idx], steps, dyna_maze.obstacles)
 
     # averaging over runs
-    rewards = rewards.mean(axis=0)
+    rewards = cumulative_rewards.mean(axis=0)
 
     return rewards
 
-# Figure 8.4, BlockingMaze
-def figure_8_4():
-    # set up a blocking maze instance
-    blocking_maze = Maze()
-    blocking_maze.START_STATE = [5, 3]
-    blocking_maze.GOAL_STATES = [[0, 8]]
-    blocking_maze.old_obstacles = [[3, i] for i in range(0, 8)]
 
-    # new obstalces will block the optimal path
-    blocking_maze.new_obstacles = [[3, i] for i in range(1, 9)]
+def changing_maze_dyna_q():
+    # 장애물 구성 변경 미로 환경 구성
+    changing_maze = ChangingMaze()
+    changing_maze.original_obstacles = [(3, i) for i in range(0, 9)]
 
-    # step limit
-    blocking_maze.max_steps = 3000
+    # 최적 경로를 가로 막는 새로운 장애물 구성
+    changing_maze.new_obstacles = [(3, i) for i in range(1, 10)]
 
-    # obstacles will change after 1000 steps
-    # the exact step for changing will be different
-    # However given that 1000 steps is long enough for both algorithms to converge,
-    # the difference is guaranteed to be very small
-    blocking_maze.obstacle_switch_time = 1000
+    # 최대 스텝 설정
+    changing_maze.max_steps = 3000
+
+    # 장애물 구성이 변경되는 스텝 설정
+    changing_maze.obstacle_switch_time = 1500
 
     # set up parameters
     DynaQParams.alpha = 1.0
     DynaQParams.planning_steps = 10
     DynaQParams.runs = 20
 
-    # kappa must be small, as the reward for getting the goal is only 1
+    # 시간 기반 모델에 사용할 파라미터
     DynaQParams.time_weight = 1e-4
 
-    # play
-    rewards = changing_maze(blocking_maze)
+    # 훈련 후 누적 보상 획득
+    rewards = maze_dyna_q_2(changing_maze)
 
     for i in range(len(DynaQParams.methods)):
         plt.plot(rewards[i, :], label=DynaQParams.methods[i])
-    plt.xlabel('time steps')
-    plt.ylabel('cumulative reward')
+
+    plt.xlabel('타임 스텝')
+    plt.ylabel('누적 보상')
     plt.legend()
 
-    plt.savefig('images/figure_8_4.png')
+    plt.savefig('images/changing_maze_dyna_q.png')
     plt.close()
+
 
 # Figure 8.5, ShortcutMaze
 def figure_8_5():
-    # set up a shortcut maze instance
-    shortcut_maze = Maze()
+    # set up a shortcut dyna_maze instance
+    shortcut_maze = ChangingMaze()
     shortcut_maze.START_STATE = [5, 3]
     shortcut_maze.GOAL_STATES = [[0, 8]]
-    shortcut_maze.old_obstacles = [[3, i] for i in range(1, 9)]
+    shortcut_maze.old_obstacles = [(3, i) for i in range(1, 9)]
 
     # new obstacles will have a shorter path
-    shortcut_maze.new_obstacles = [[3, i] for i in range(1, 8)]
+    shortcut_maze.new_obstacles = [(3, i) for i in range(1, 8)]
 
     # step limit
     shortcut_maze.max_steps = 6000
@@ -477,7 +475,7 @@ def figure_8_5():
     DynaQParams.alpha = 1.0
 
     # play
-    rewards = changing_maze(shortcut_maze)
+    rewards = maze_dyna_q_2(shortcut_maze)
 
     for i in range(len(DynaQParams.methods)):
         plt.plot( rewards[i, :], label=DynaQParams.methods[i])
@@ -490,16 +488,16 @@ def figure_8_5():
 
 
 # Check whether state-action values are already optimal
-def check_path(q_values, maze):
+def check_path(q_values, dyna_maze):
     # get the length of optimal path
-    # 14 is the length of optimal path of the original maze
+    # 14 is the length of optimal path of the original dyna_maze
     # 1.2 means it's a relaxed optifmal path
-    max_steps = 14 * maze.resolution * 1.2
-    state = maze.START_STATE
+    max_steps = 14 * dyna_maze.resolution * 1.2
+    state = dyna_maze.START_STATE
     steps = 0
-    while state not in maze.GOAL_STATES:
+    while state not in dyna_maze.GOAL_STATES:
         action = np.argmax(q_values[state[0], state[1], :])
-        state, _ = maze.step(state, action)
+        _, state = dyna_maze.step(state, action)
         steps += 1
         if steps > max_steps:
             return False
@@ -508,7 +506,7 @@ def check_path(q_values, maze):
 
 # Example 8.4, mazes with different resolution
 def example_8_4():
-    # get the original 6 * 9 maze
+    # get the original 6 * 9 dyna_maze
     original_maze = Maze()
 
     # set up the parameters for each algorithm
@@ -529,7 +527,7 @@ def example_8_4():
     method_names = ['Prioritized Sweeping', 'Dyna-Q']
 
     # due to limitation of my machine, I can only perform experiments for 5 mazes
-    # assuming the 1st maze has w * h states, then k-th maze has w * h * k * k states
+    # assuming the 1st dyna_maze has w * h states, then k-th dyna_maze has w * h * k * k states
     num_of_mazes = 5
 
     # build all the mazes
@@ -544,11 +542,11 @@ def example_8_4():
 
     for run in range(0, runs):
         for i in range(0, len(method_names)):
-            for mazeIndex, maze in zip(range(0, len(mazes)), mazes):
-                print('run %d, %s, maze size %d' % (run, method_names[i], maze.WORLD_HEIGHT * maze.WORLD_WIDTH))
+            for mazeIndex, dyna_maze in zip(range(0, len(mazes)), mazes):
+                print('run %d, %s, dyna_maze size %d' % (run, method_names[i], dyna_maze.WORLD_HEIGHT * dyna_maze.WORLD_WIDTH))
 
                 # initialize the state action values
-                q_value = np.zeros(maze.q_size)
+                q_value = np.zeros(dyna_maze.q_size)
 
                 # track steps / backups for each episode
                 steps = []
@@ -558,16 +556,16 @@ def example_8_4():
 
                 # play for an episode
                 while True:
-                    steps.append(methods[i](q_value, model, maze, params[i]))
+                    steps.append(methods[i](q_value, model, dyna_maze, params[i]))
 
                     # print best actions w.r.t. current state-action values
-                    # printActions(currentStateActionValues, maze)
+                    # printActions(currentStateActionValues, dyna_maze)
 
                     # check whether the (relaxed) optimal path is found
-                    if check_path(q_value, maze):
+                    if check_path(q_value, dyna_maze):
                         break
 
-                # update the total steps / backups for this maze
+                # update the total steps / backups for this dyna_maze
                 backups[run, i, mazeIndex] = np.sum(steps)
 
     backups = backups.mean(axis=0)
@@ -577,7 +575,7 @@ def example_8_4():
 
     for i in range(0, len(method_names)):
         plt.plot(np.arange(1, num_of_mazes + 1), backups[i, :], label=method_names[i])
-    plt.xlabel('maze resolution factor')
+    plt.xlabel('dyna_maze resolution factor')
     plt.ylabel('backups until optimal solution')
     plt.yscale('log')
     plt.legend()
@@ -587,7 +585,7 @@ def example_8_4():
 
 
 if __name__ == '__main__':
-    maze_dyna_q()
-    # figure_8_4()
+    #maze_dyna_q()
+    changing_maze_dyna_q()
     # figure_8_5()
     # example_8_4()

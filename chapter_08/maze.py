@@ -61,18 +61,19 @@ class Maze:
         else:
             reward = 0.0
 
-        return (x, y), reward
+        return reward, (x, y)
 
 
 # 미로 내 장애물 및 시작 상태, 종료 상태 정보등을 모두 지닌 미로 클래스
 class ChangingMaze(Maze):
     def __init__(self):
         super(ChangingMaze, self).__init__()
-        self.old_obstacles = None
+        self.original_obstacles = self.obstacles
         self.new_obstacles = None
 
         # 장애물을 변경하는 타임 스텝
         self.obstacle_switch_time = None
+
 
     # extend a state to a higher resolution maze
     # @state: state in lower resoultion maze
@@ -84,6 +85,7 @@ class ChangingMaze(Maze):
             for j in range(0, factor):
                 new_states.append([new_state[0] + i, new_state[1] + j])
         return new_states
+
 
     # extend a state into higher resolution
     # one state in original maze will become @factor^2 states in @return new maze
