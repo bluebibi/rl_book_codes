@@ -68,7 +68,7 @@ class Maze:
 class ChangingMaze(Maze):
     def __init__(self):
         super(ChangingMaze, self).__init__()
-        self.original_obstacles = self.obstacles
+        self.original_obstacles = None
         self.new_obstacles = None
 
         # 장애물을 변경하는 타임 스텝
