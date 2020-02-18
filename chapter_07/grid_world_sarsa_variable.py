@@ -71,15 +71,15 @@ def generate_e_greedy_policy(env, e, Q):
 
 
 def step_n_e_greedy(env, e, N, state, action):
-    action_values = []
+    step_n_values = []
     prob = []
     for n in range(1, STEP_N_MAX+1):
-        action_values.append(N[(state, action, n)])
-    for action_value in action_values:
-        if action_value == max(action_values):
+        step_n_values.append(N[(state, action, n)])
+    for action_value in step_n_values:
+        if action_value == max(step_n_values):
             prob.append((1 - e))
         else:
-            prob.append(e/(len(action_values) - 1))
+            prob.append(e/(len(step_n_values) - 1))
     return prob
 
 
