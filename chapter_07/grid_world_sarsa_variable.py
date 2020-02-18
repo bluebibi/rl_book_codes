@@ -133,9 +133,11 @@ def variable_n_step_sarsa(env, epsilon=0.3, alpha=0.5, gamma=0.98, num_iter=100,
                         G += (gamma ** n) * Q[state_trace[tau + n], action_trace[tau + n]]
 
                     Q[state_trace[tau], action_trace[tau]] += alpha * (G - Q[state_trace[tau], action_trace[tau]])
+                    N[state_trace[tau], action_trace[tau], n] += alpha * (G - N[state_trace[tau], action_trace[tau], n])
 
                     if learn_policy:
                         policy[state_trace[tau]] = e_greedy(env, epsilon, Q, state_trace[tau])
+                        step_n_policy[(state_trace[tau], action_trace[tau])] = step_n_e_greedy(env, epsilon, N, state_trace[tau], action_trace[tau])
 
                     update_state += 1
                 else:
