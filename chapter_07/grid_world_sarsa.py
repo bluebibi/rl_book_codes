@@ -1,9 +1,14 @@
 # 사용 패키지 임포트
 import numpy as np
 import random
+import matplotlib as mpl
 import matplotlib.pyplot as plt
 
 from environments.gridworld import GridWorld
+
+plt.rcParams["font.family"] = 'AppleGothic'
+plt.rcParams["font.size"] = 12
+mpl.rcParams['axes.unicode_minus'] = False
 
 STEP_N_MAX = 9
 
@@ -15,15 +20,6 @@ def state_action_value(env):
         for action in env.ACTIONS:
             q[(state, action)] = np.random.normal()
     return q
-
-
-def n_state_action_value(env):
-    N = dict()
-    for state in env.STATES:
-        for action in env.ACTIONS:
-            for n in range(1, STEP_N_MAX + 1):
-                N[(state, action, n)] = np.random.normal()
-    return N
 
 
 # 탐욕적 정책을 생성하는 함수
@@ -71,50 +67,19 @@ def generate_e_greedy_policy(env, e, Q):
     return policy
 
 
-def step_n_e_greedy(e, N, state, action):
-    step_n_values = []
-    prob = []
-    for n in range(1, STEP_N_MAX + 1):
-        step_n_values.append(N[(state, action, n)])
-
-    for action_value in step_n_values:
-        if action_value == max(step_n_values):
-            prob.append((1 - e + e/len(step_n_values)))
-        else:
-            prob.append(e/len(step_n_values))
-    return prob
-
-
-def generate_step_n_e_greedy_policy(env, e, N):
-    step_n_policy = dict()
-    for state in env.STATES:
-        for action in env.ACTIONS:
-            step_n_policy[(state, action)] = step_n_e_greedy(e, N, state, action)
-    return step_n_policy
-
-
 # n-스텝 SARSA 함수
 # 초기 하이퍼파라미터 설정: ε=0.3, α=0.5, γ=0.98, n-스텝 = 3, 반복 수행 횟수 = 100
-def variable_n_step_sarsa(env, epsilon=0.3, alpha=0.5, gamma=0.98, num_iter=100, learn_policy=True):
+def n_step_sarsa(env, epsilon=0.3, alpha=0.5, gamma=0.98, n=3, num_iter=100, learn_policy=True):
     Q = state_action_value(env)
     policy = generate_e_greedy_policy(env, epsilon, Q)
-
-    N = n_state_action_value(env)
-    step_n_policy = generate_step_n_e_greedy_policy(env, epsilon, N)
 
     cumulative_reward = 0
 
     for _ in range(num_iter):
         current_state = env.reset()
         action = np.random.choice(policy[current_state][0], p=policy[current_state][1])
-        step_n = np.random.choice(
-            [n for n in range(1, STEP_N_MAX + 1)],
-            p=step_n_policy[(current_state, action)]
-        )
-        state_trace, action_trace, reward_trace, step_n_trace = [current_state], [action], [], [step_n]
+        state_trace, action_trace, reward_trace = [current_state], [action], []
         t, T = 0, 10000
-
-        update_state = 0
 
         # SARSA == STATE ACTION REWARD STATE ACTION
         while True:
@@ -128,18 +93,10 @@ def variable_n_step_sarsa(env, epsilon=0.3, alpha=0.5, gamma=0.98, num_iter=100,
                     cumulative_reward += sum(reward_trace)
                 else:
                     next_action = np.random.choice(policy[next_state][0], p=policy[next_state][1])
-                    next_step_n = np.random.choice(
-                        [n for n in range(1, STEP_N_MAX + 1)],
-                        p=step_n_policy[(next_state, next_action)]
-                    )
                     action_trace.append(next_action)
-                    step_n_trace.append(next_step_n)
 
-            n = step_n_trace[update_state]
             tau = t - n + 1
             if tau >= 0:
-                print(len(state_trace), len(action_trace), len(reward_trace), len(step_n_trace))
-
                 G = 0
                 for i in range(tau + 1, min([tau + n, T]) + 1):
                     G += (gamma ** (i - tau - 1)) * reward_trace[i - 1]
@@ -148,13 +105,9 @@ def variable_n_step_sarsa(env, epsilon=0.3, alpha=0.5, gamma=0.98, num_iter=100,
                     G += (gamma ** n) * Q[state_trace[tau + n], action_trace[tau + n]]
 
                 Q[state_trace[tau], action_trace[tau]] += alpha * (G - Q[state_trace[tau], action_trace[tau]])
-                N[state_trace[tau], action_trace[tau], n] += alpha * (G - N[state_trace[tau], action_trace[tau], n])
 
                 if learn_policy:
                     policy[state_trace[tau]] = e_greedy(env, epsilon, Q, state_trace[tau])
-                    step_n_policy[(state_trace[tau], action_trace[tau])] = step_n_e_greedy(epsilon, N, state_trace[tau], action_trace[tau])
-
-                update_state += 1
 
             current_state = next_state
             action = next_action
@@ -167,14 +120,35 @@ def variable_n_step_sarsa(env, epsilon=0.3, alpha=0.5, gamma=0.98, num_iter=100,
 
 
 if __name__ == '__main__':
-    cumulative_reward_lst = []
+    average_reward_lst = []
 
     # 그리드 월드 환경 객체 생성
     env = GridWorld(transition_reward=-0.1)
 
-    for _ in range(1):
-        policy, Q, cumulative_reward = variable_n_step_sarsa(env, epsilon=0.2, alpha=0.5, gamma=0.98, num_iter=100)
-        cumulative_reward_lst.append(cumulative_reward)
-    print(policy)
-    print(Q)
-    print("average_reward:", sum(cumulative_reward_lst)/len(cumulative_reward_lst))
+    step_n = np.power(2, np.arange(0, 10))
+    alphas = np.arange(0.1, 1.1, 0.1)
+
+    average_rewards = np.zeros((len(step_n), len(alphas)))
+    for n_idx, n in enumerate(step_n):
+        for alpha_idx, alpha in enumerate(alphas):
+            for _ in range(100):
+                policy, Q, average_reward = n_step_sarsa(env, epsilon=0.2, alpha=alpha, gamma=0.98, n=n, num_iter=10)
+                average_reward_lst.append(average_reward)
+
+            average_rewards[n_idx, alpha_idx] = sum(average_reward_lst)/len(average_reward_lst)
+            print("step_n:", n, " alphas:", alpha)
+            # print(policy)
+            # print(Q)
+            print("average_reward:", average_rewards[n_idx, alpha_idx])
+
+    marker = ['o', 'x', '.', 's', '*', '+', '|', '^', 'D', ' ']
+    for i in range(0, len(step_n)):
+        plt.plot(alphas, average_rewards[i, :], marker=marker[i], label='n = %d' % (step_n[i]))
+
+    plt.xlabel('스텝 사이즈(alpha)')
+    plt.ylabel('episode 평균 reward')
+    plt.ylim([-7, -5])
+    plt.legend()
+
+    plt.savefig('images/n_step_sarsa_for_grid_world.png')
+    plt.close()

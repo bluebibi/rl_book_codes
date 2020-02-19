@@ -28,6 +28,8 @@ class GridWorld:
         for i in range(self.HEIGHT):
             for j in range(self.WIDTH):
                 self.STATES.append((i, j))
+        for state in terminal_state:     # 터미널 스테이트 제거
+            self.STATES.remove(state)
 
         # 모든 가능한 행동
         self.ACTION_UP = 0
