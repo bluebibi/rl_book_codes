@@ -74,8 +74,9 @@ def n_step_sarsa(env, epsilon=0.3, alpha=0.5, gamma=0.98, n=3, num_iter=100, lea
     policy = generate_e_greedy_policy(env, epsilon, Q)
 
     cumulative_reward = 0
+    average_reward = []
 
-    for _ in range(num_iter):
+    for episode in range(num_iter):
         current_state = env.reset()
         action = np.random.choice(policy[current_state][0], p=policy[current_state][1])
         state_trace, action_trace, reward_trace = [current_state], [action], []
@@ -116,39 +117,46 @@ def n_step_sarsa(env, epsilon=0.3, alpha=0.5, gamma=0.98, n=3, num_iter=100, lea
                 break
             t += 1
 
-    return policy, Q, cumulative_reward/num_iter
+        # max episode를 10등분하여 그 위치에 해당하는 reward 저장
+        if (episode+1) % (num_iter/10) == 0:
+            average_reward.append(cumulative_reward/(episode+1))
+
+    return policy, Q, average_reward
 
 
 if __name__ == '__main__':
-    average_reward_lst = []
-
     # 그리드 월드 환경 객체 생성
     env = GridWorld(transition_reward=-0.1)
 
     step_n = np.power(2, np.arange(0, 10))
-    alphas = np.arange(0.1, 1.1, 0.1)
+    max_episode = 100
+    episodes = np.arange(max_episode/10, max_episode+1, max_episode/10)
 
-    average_rewards = np.zeros((len(step_n), len(alphas)))
+    average_rewards = np.zeros((len(step_n), len(episodes)))
     for n_idx, n in enumerate(step_n):
-        for alpha_idx, alpha in enumerate(alphas):
-            for _ in range(100):
-                policy, Q, average_reward = n_step_sarsa(env, epsilon=0.2, alpha=alpha, gamma=0.98, n=n, num_iter=10)
-                average_reward_lst.append(average_reward)
+        average_reward_lst = []
+        for _ in range(100):
+            policy, Q, average_reward = n_step_sarsa(env, epsilon=0.2, alpha=0.2, gamma=0.98, n=n, num_iter=max_episode)
+            average_reward_lst.append(average_reward)
 
-            average_rewards[n_idx, alpha_idx] = sum(average_reward_lst)/len(average_reward_lst)
-            print("step_n:", n, " alphas:", alpha)
+        for episode_idx, episode in enumerate(episodes):
+            reward_sum = 0
+            for i in range(len(average_reward)):
+                reward_sum += average_reward_lst[i][episode_idx]
+            average_rewards[n_idx, episode_idx] = reward_sum/len(average_reward)
+            print("step_n:", n, " episodes:", episode)
             # print(policy)
             # print(Q)
-            print("average_reward:", average_rewards[n_idx, alpha_idx])
+            print("average_reward:", average_rewards[n_idx, episode_idx])
 
     marker = ['o', 'x', '.', 's', '*', '+', '|', '^', 'D', ' ']
     for i in range(0, len(step_n)):
-        plt.plot(alphas, average_rewards[i, :], marker=marker[i], label='n = %d' % (step_n[i]))
+        plt.plot(episodes, average_rewards[i, :], marker=marker[i], label='n = %d' % (step_n[i]))
 
-    plt.xlabel('스텝 사이즈(alpha)')
-    plt.ylabel('episode 평균 reward')
-    plt.ylim([-7, -5])
+    plt.xlabel('진행된 episode')
+    plt.ylabel('episode 누적 평균 reward')
+    plt.ylim([-7, 0])
     plt.legend()
 
-    plt.savefig('images/n_step_sarsa_for_grid_world.png')
+    plt.savefig('images/n_step_sarsa_for_grid_world_alpha_0,4.png')
     plt.close()

@@ -137,44 +137,50 @@ def variable_n_step_sarsa(env, epsilon=0.3, alpha=0.5, gamma=0.98, num_iter=100,
 
             n = step_n_trace[update_state]
             tau = t - n + 1
-            if tau >= 0:
-                print(len(state_trace), len(action_trace), len(reward_trace), len(step_n_trace))
+            if tau >= update_state:     # update_state 시작위치부터 n개를 reward_trace[]에서 가져와야 하기 때문
+                # print(len(state_trace), len(action_trace), len(reward_trace), len(step_n_trace))
 
                 G = 0
-                for i in range(tau + 1, min([tau + n, T]) + 1):
-                    G += (gamma ** (i - tau - 1)) * reward_trace[i - 1]
+                for i in range(update_state + 1, min([update_state + n, T]) + 1):
+                    G += (gamma ** (i - update_state - 1)) * reward_trace[i - 1]
 
-                if tau + n < T:
-                    G += (gamma ** n) * Q[state_trace[tau + n], action_trace[tau + n]]
+                if update_state + n < T:
+                    G += (gamma ** n) * Q[state_trace[update_state + n], action_trace[update_state + n]]
+                else:
+                    n = T - update_state        # terminal state 넘어가는 n값 조정
 
-                Q[state_trace[tau], action_trace[tau]] += alpha * (G - Q[state_trace[tau], action_trace[tau]])
-                N[state_trace[tau], action_trace[tau], n] += alpha * (G - N[state_trace[tau], action_trace[tau], n])
+                Q[state_trace[update_state], action_trace[update_state]] += alpha * (G - Q[state_trace[update_state], action_trace[update_state]])
+                N[state_trace[update_state], action_trace[update_state], n] += alpha * (G - N[state_trace[update_state], action_trace[update_state], n])
 
                 if learn_policy:
-                    policy[state_trace[tau]] = e_greedy(env, epsilon, Q, state_trace[tau])
-                    step_n_policy[(state_trace[tau], action_trace[tau])] = step_n_e_greedy(epsilon, N, state_trace[tau], action_trace[tau])
+                    policy[state_trace[update_state]] = e_greedy(env, epsilon, Q, state_trace[update_state])
+                    step_n_policy[(state_trace[update_state], action_trace[update_state])] = step_n_e_greedy(epsilon, N, state_trace[update_state], action_trace[update_state])
 
                 update_state += 1
 
             current_state = next_state
             action = next_action
 
-            if tau == (T - 1):
+            if update_state == (T - 1):
                 break
             t += 1
 
-    return policy, Q, cumulative_reward/num_iter
+        # print(step_n_trace)
+
+    return policy, Q, step_n_policy, N, cumulative_reward/num_iter
 
 
 if __name__ == '__main__':
-    cumulative_reward_lst = []
+    average_reward_lst = []
 
     # 그리드 월드 환경 객체 생성
     env = GridWorld(transition_reward=-0.1)
 
-    for _ in range(1):
-        policy, Q, cumulative_reward = variable_n_step_sarsa(env, epsilon=0.2, alpha=0.5, gamma=0.98, num_iter=100)
-        cumulative_reward_lst.append(cumulative_reward)
+    for _ in range(100):
+        policy, Q, step_n_policy, N, cumulative_reward = variable_n_step_sarsa(env, epsilon=0.2, alpha=0.2, gamma=0.98, num_iter=100)
+        average_reward_lst.append(cumulative_reward)
     print(policy)
     print(Q)
-    print("average_reward:", sum(cumulative_reward_lst)/len(cumulative_reward_lst))
+    print(step_n_policy)
+    print(N)
+    print("average_reward:", sum(average_reward_lst)/len(average_reward_lst))
