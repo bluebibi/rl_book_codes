@@ -2,8 +2,14 @@
 import numpy as np
 import random
 import matplotlib.pyplot as plt
+import matplotlib as mpl
+import pickle
 
 from environments.gridworld import GridWorld
+
+plt.rcParams["font.family"] = 'AppleGothic'
+plt.rcParams["font.size"] = 12
+mpl.rcParams['axes.unicode_minus'] = False
 
 STEP_N_MAX = 9
 
@@ -103,8 +109,9 @@ def variable_n_step_sarsa(env, epsilon=0.3, alpha=0.5, gamma=0.98, num_iter=100,
     step_n_policy = generate_step_n_e_greedy_policy(env, epsilon, N)
 
     cumulative_reward = 0
+    average_reward = []
 
-    for _ in range(num_iter):
+    for episode in range(num_iter):
         current_state = env.reset()
         action = np.random.choice(policy[current_state][0], p=policy[current_state][1])
         step_n = np.random.choice(
@@ -167,20 +174,60 @@ def variable_n_step_sarsa(env, epsilon=0.3, alpha=0.5, gamma=0.98, num_iter=100,
 
         # print(step_n_trace)
 
-    return policy, Q, step_n_policy, N, cumulative_reward/num_iter
+        # max episode를 10등분하여 그 위치에 해당하는 reward 저장
+        if (episode + 1) % (num_iter / 10) == 0:
+            average_reward.append(cumulative_reward)
+
+    print(average_reward)
+    return policy, Q, step_n_policy, N, average_reward
 
 
 if __name__ == '__main__':
+    with open('datas/constant_step_n.bin', 'rb') as file:
+        data = pickle.load(file)
+
     average_reward_lst = []
 
     # 그리드 월드 환경 객체 생성
-    env = GridWorld(transition_reward=-0.1)
+    env = GridWorld(
+        height=10,
+        width=10,
+        start_state=(0, 0),
+        terminal_state=[(9, 9)],
+        transition_reward=-0.1,
+        terminal_reward=1.0
+    )
 
+    step_n = [1, 2, 4, 8, 16, 32, 'variable']
+    max_episode = 100
+    episodes = np.arange(max_episode / 10, max_episode + 1, max_episode / 10)
+
+    average_rewards = np.zeros((1, len(episodes)))
     for _ in range(100):
-        policy, Q, step_n_policy, N, cumulative_reward = variable_n_step_sarsa(env, epsilon=0.2, alpha=0.2, gamma=0.98, num_iter=100)
-        average_reward_lst.append(cumulative_reward)
-    print(policy)
-    print(Q)
-    print(step_n_policy)
-    print(N)
-    print("average_reward:", sum(average_reward_lst)/len(average_reward_lst))
+        policy, Q, step_n_policy, N, average_reward = variable_n_step_sarsa(env, epsilon=0.2, alpha=0.2, gamma=0.98, num_iter=100)
+        average_reward_lst.append(average_reward)
+
+    for episode_idx, episode in enumerate(episodes):
+        reward_sum = 0
+        for i in range(len(average_reward_lst)):
+            reward_sum += average_reward_lst[i][episode_idx]
+
+        average_rewards[0, episode_idx] = reward_sum / len(average_reward_lst)
+
+    data = np.append(data, average_rewards, axis=0)
+
+    marker = ['o', 'x', '.', 's', '*', '+', '|', '^', 'D', ' ']
+    for i in range(0, len(step_n)):
+        plt.plot(episodes, data[i, :], marker=marker[i], label='n = {0}'.format(step_n[i]))
+        # if i != len(step_n) - 1:
+        #     plt.plot(episodes, data[i, :], marker=marker[i], label='n = %d' % (step_n[i]))
+        # else:
+        #     plt.plot(episodes, data[i, :], marker=marker[i], label='n = %s' % (step_n[i]))
+
+    plt.xlabel('진행된 episode')
+    plt.ylabel('episode 평균 reward')
+    # plt.ylim([-7, 0])
+    plt.legend()
+
+    plt.savefig('images/n_step_for_grid_world_alpha_0,2.png')
+    plt.close()

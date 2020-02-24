@@ -3,6 +3,8 @@ import numpy as np
 import random
 import matplotlib as mpl
 import matplotlib.pyplot as plt
+import pickle
+import os
 
 from environments.gridworld import GridWorld
 
@@ -119,7 +121,7 @@ def n_step_sarsa(env, epsilon=0.3, alpha=0.5, gamma=0.98, n=3, num_iter=100, lea
 
         # max episode를 10등분하여 그 위치에 해당하는 reward 저장
         if (episode+1) % (num_iter/10) == 0:
-            average_reward.append(cumulative_reward/(episode+1))
+            average_reward.append(cumulative_reward)
 
     return policy, Q, average_reward
 
@@ -148,9 +150,9 @@ if __name__ == '__main__':
 
         for episode_idx, episode in enumerate(episodes):
             reward_sum = 0
-            for i in range(len(average_reward)):
+            for i in range(len(average_reward_lst)):
                 reward_sum += average_reward_lst[i][episode_idx]
-            average_rewards[n_idx, episode_idx] = reward_sum/len(average_reward)
+            average_rewards[n_idx, episode_idx] = reward_sum/len(average_reward_lst)
             print("step_n:", n, " episodes:", episode)
             # print(policy)
             # print(Q)
@@ -167,3 +169,8 @@ if __name__ == '__main__':
 
     plt.savefig('images/n_step_sarsa_for_grid_world_alpha_0,2.png')
     plt.close()
+
+    if not (os.path.isdir('datas')):
+        os.makedirs(os.path.join('datas'))
+    with open('datas/constant_step_n.bin', 'wb') as f:
+        pickle.dump(average_rewards, f)
