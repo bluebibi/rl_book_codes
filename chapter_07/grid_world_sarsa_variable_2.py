@@ -125,7 +125,7 @@ def variable_n_step_sarsa(env, epsilon=0.3, alpha=0.5, gamma=0.98, num_iter=100,
 
                 if next_state in env.GOAL_STATES:
                     T = t + 1
-                    cumulative_reward += sum(reward_trace)
+                    cumulative_reward = sum(reward_trace)
                 else:
                     next_action = np.random.choice(policy[next_state][0], p=policy[next_state][1])
                     next_step_n = np.random.choice(

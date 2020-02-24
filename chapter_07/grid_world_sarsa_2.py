@@ -91,7 +91,7 @@ def n_step_sarsa(env, epsilon=0.3, alpha=0.5, gamma=0.98, n=3, num_iter=100, lea
 
                 if next_state in env.GOAL_STATES:
                     T = t + 1
-                    cumulative_reward += sum(reward_trace)      # episode 누적 reward
+                    cumulative_reward = sum(reward_trace)      # episode 누적 reward
                 else:
                     next_action = np.random.choice(policy[next_state][0], p=policy[next_state][1])
                     action_trace.append(next_action)
@@ -126,9 +126,16 @@ def n_step_sarsa(env, epsilon=0.3, alpha=0.5, gamma=0.98, n=3, num_iter=100, lea
 
 if __name__ == '__main__':
     # 그리드 월드 환경 객체 생성
-    env = GridWorld(transition_reward=-0.1)
+    env = GridWorld(
+        height=10,
+        width=10,
+        start_state=(0, 0),
+        terminal_state=[(9, 9)],
+        transition_reward=-0.1,
+        terminal_reward=1.0
+    )
 
-    step_n = np.power(2, np.arange(0, 10))
+    step_n = np.power(2, np.arange(0, 6))
     max_episode = 100
     episodes = np.arange(max_episode/10, max_episode+1, max_episode/10)
 
@@ -155,8 +162,8 @@ if __name__ == '__main__':
 
     plt.xlabel('진행된 episode')
     plt.ylabel('episode 누적 평균 reward')
-    plt.ylim([-7, 0])
+    #plt.ylim([-7, 0])
     plt.legend()
 
-    plt.savefig('images/n_step_sarsa_for_grid_world_alpha_0,4.png')
+    plt.savefig('images/n_step_sarsa_for_grid_world_alpha_0,2.png')
     plt.close()
