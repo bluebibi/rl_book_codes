@@ -219,10 +219,6 @@ if __name__ == '__main__':
     marker = ['o', 'x', '.', 's', '*', '+', '|', '^', 'D', ' ']
     for i in range(0, len(step_n)):
         plt.plot(episodes, data[i, :], marker=marker[i], label='n = {0}'.format(step_n[i]))
-        # if i != len(step_n) - 1:
-        #     plt.plot(episodes, data[i, :], marker=marker[i], label='n = %d' % (step_n[i]))
-        # else:
-        #     plt.plot(episodes, data[i, :], marker=marker[i], label='n = %s' % (step_n[i]))
 
     plt.xlabel('진행된 episode')
     plt.ylabel('episode 평균 reward')
