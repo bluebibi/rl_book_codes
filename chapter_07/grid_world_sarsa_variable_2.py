@@ -17,16 +17,16 @@ STEP_N_MAX = 9
 # 행동-가치 함수 생성
 def state_action_value(env):
     q = dict()
-    for state in env.STATES:
-        for action in env.ACTIONS:
+    for state in env.observation_space.STATES:
+        for action in env.observation_space.ACTIONS:
             q[(state, action)] = np.random.normal()
     return q
 
 
 def n_state_action_value(env):
     N = dict()
-    for state in env.STATES:
-        for action in env.ACTIONS:
+    for state in env.observation_space.STATES:
+        for action in env.observation_space.ACTIONS:
             for n in range(1, STEP_N_MAX + 1):
                 N[(state, action, n)] = np.random.normal()
     return N
@@ -35,12 +35,12 @@ def n_state_action_value(env):
 # 탐욕적 정책을 생성하는 함수
 def generate_greedy_policy(env, Q):
     policy = dict()
-    for state in env.STATES:
+    for state in env.observation_space.STATES:
         actions = []
         q_values = []
         prob = []
 
-        for action in env.ACTIONS:
+        for action in env.observation_space.ACTIONS:
             actions.append(action)
             q_values.append(Q[state, action])
 
@@ -58,7 +58,7 @@ def generate_greedy_policy(env, Q):
 def e_greedy(env, e, q, state):
     action_values = []
     prob = []
-    for action in env.ACTIONS:
+    for action in env.observation_space.ACTIONS:
         action_values.append(q[(state, action)])
 
     for i in range(len(action_values)):
@@ -66,13 +66,13 @@ def e_greedy(env, e, q, state):
             prob.append(1 - e + e/len(action_values))
         else:
             prob.append(e/len(action_values))
-    return env.ACTIONS, prob
+    return env.observation_space.ACTIONS, prob
 
 
 # ε-탐욕적 정책 생성 함수
 def generate_e_greedy_policy(env, e, Q):
     policy = dict()
-    for state in env.STATES:
+    for state in env.observation_space.STATES:
         policy[state] = e_greedy(env, e, Q, state)
     return policy
 
@@ -93,8 +93,8 @@ def step_n_e_greedy(e, N, state, action):
 
 def generate_step_n_e_greedy_policy(env, e, N):
     step_n_policy = dict()
-    for state in env.STATES:
-        for action in env.ACTIONS:
+    for state in env.observation_space.STATES:
+        for action in env.observation_space.ACTIONS:
             step_n_policy[(state, action)] = step_n_e_greedy(e, N, state, action)
     return step_n_policy
 
@@ -112,13 +112,13 @@ def variable_n_step_sarsa(env, epsilon=0.3, alpha=0.5, gamma=0.98, num_iter=100,
     average_reward = []
 
     for episode in range(num_iter):
-        current_state = env.reset()
-        action = np.random.choice(policy[current_state][0], p=policy[current_state][1])
+        state = env.reset()
+        action = np.random.choice(policy[state][0], p=policy[state][1])
         step_n = np.random.choice(
             [n for n in range(1, STEP_N_MAX + 1)],
-            p=step_n_policy[(current_state, action)]
+            p=step_n_policy[(state, action)]
         )
-        state_trace, action_trace, reward_trace, step_n_trace = [current_state], [action], [], [step_n]
+        state_trace, action_trace, reward_trace, step_n_trace = [state], [action], [], [step_n]
         t, T = 0, 10000
 
         update_state = 0
@@ -126,21 +126,21 @@ def variable_n_step_sarsa(env, epsilon=0.3, alpha=0.5, gamma=0.98, num_iter=100,
         # SARSA == STATE ACTION REWARD STATE ACTION
         while True:
             if t < T:
-                reward, next_state = env.step(current_state, action)
+                next_state, reward, done, _ = env.step(action)
                 reward_trace.append(reward)
                 state_trace.append(next_state)
 
-                if next_state in env.GOAL_STATES:
+                if done:
                     T = t + 1
                     cumulative_reward = sum(reward_trace)
                 else:
-                    next_action = np.random.choice(policy[next_state][0], p=policy[next_state][1])
-                    next_step_n = np.random.choice(
+                    action = np.random.choice(policy[next_state][0], p=policy[next_state][1])
+                    step_n = np.random.choice(
                         [n for n in range(1, STEP_N_MAX + 1)],
-                        p=step_n_policy[(next_state, next_action)]
+                        p=step_n_policy[(next_state, action)]
                     )
-                    action_trace.append(next_action)
-                    step_n_trace.append(next_step_n)
+                    action_trace.append(action)
+                    step_n_trace.append(step_n)
 
             n = step_n_trace[update_state]
             tau = t - n + 1
@@ -164,9 +164,6 @@ def variable_n_step_sarsa(env, epsilon=0.3, alpha=0.5, gamma=0.98, num_iter=100,
                     step_n_policy[(state_trace[update_state], action_trace[update_state])] = step_n_e_greedy(epsilon, N, state_trace[update_state], action_trace[update_state])
 
                 update_state += 1
-
-            current_state = next_state
-            action = next_action
 
             if update_state == (T - 1):
                 break

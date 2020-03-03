@@ -1,6 +1,5 @@
 # 사용 패키지 임포트
 import numpy as np
-import random
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 
@@ -16,8 +15,8 @@ STEP_N_MAX = 9
 # 행동-가치 함수 생성
 def state_action_value(env):
     q = dict()
-    for state in env.STATES:
-        for action in env.ACTIONS:
+    for state in env.observation_space.STATES:
+        for action in env.observation_space.ACTIONS:
             q[(state, action)] = np.random.normal()
     return q
 
@@ -25,12 +24,12 @@ def state_action_value(env):
 # 탐욕적 정책을 생성하는 함수
 def generate_greedy_policy(env, Q):
     policy = dict()
-    for state in env.STATES:
+    for state in env.observation_space.STATES:
         actions = []
         q_values = []
         prob = []
 
-        for action in env.ACTIONS:
+        for action in env.observation_space.ACTIONS:
             actions.append(action)
             q_values.append(Q[state, action])
 
@@ -48,7 +47,7 @@ def generate_greedy_policy(env, Q):
 def e_greedy(env, e, q, state):
     action_values = []
     prob = []
-    for action in env.ACTIONS:
+    for action in env.observation_space.ACTIONS:
         action_values.append(q[(state, action)])
 
     for i in range(len(action_values)):
@@ -56,13 +55,13 @@ def e_greedy(env, e, q, state):
             prob.append(1 - e + e/len(action_values))
         else:
             prob.append(e/len(action_values))
-    return env.ACTIONS, prob
+    return env.observation_space.ACTIONS, prob
 
 
 # ε-탐욕적 정책 생성 함수
 def generate_e_greedy_policy(env, e, Q):
     policy = dict()
-    for state in env.STATES:
+    for state in env.observation_space.STATES:
         policy[state] = e_greedy(env, e, Q, state)
     return policy
 
@@ -76,24 +75,24 @@ def n_step_sarsa(env, epsilon=0.3, alpha=0.5, gamma=0.98, n=3, num_iter=100, lea
     cumulative_reward = 0
 
     for _ in range(num_iter):
-        current_state = env.reset()
-        action = np.random.choice(policy[current_state][0], p=policy[current_state][1])
-        state_trace, action_trace, reward_trace = [current_state], [action], []
+        state = env.reset()
+        action = np.random.choice(policy[state][0], p=policy[state][1])
+        state_trace, action_trace, reward_trace = [state], [action], []
         t, T = 0, 10000
 
         # SARSA == STATE ACTION REWARD STATE ACTION
         while True:
             if t < T:
-                reward, next_state = env.step(current_state, action)
+                next_state, reward, done, _ = env.step(action)
                 reward_trace.append(reward)
                 state_trace.append(next_state)
 
-                if next_state in env.GOAL_STATES:
+                if done:
                     T = t + 1
                     cumulative_reward += sum(reward_trace)      # episode 누적 reward
                 else:
-                    next_action = np.random.choice(policy[next_state][0], p=policy[next_state][1])
-                    action_trace.append(next_action)
+                    action = np.random.choice(policy[next_state][0], p=policy[next_state][1])
+                    action_trace.append(action)
 
             tau = t - n + 1
             if tau >= 0:
@@ -109,9 +108,6 @@ def n_step_sarsa(env, epsilon=0.3, alpha=0.5, gamma=0.98, n=3, num_iter=100, lea
                 if learn_policy:
                     policy[state_trace[tau]] = e_greedy(env, epsilon, Q, state_trace[tau])
 
-            current_state = next_state
-            action = next_action
-
             if tau == (T - 1):
                 break
             t += 1
@@ -125,7 +121,7 @@ if __name__ == '__main__':
     # 그리드 월드 환경 객체 생성
     env = GridWorld(transition_reward=-0.1)
 
-    step_n = np.power(2, np.arange(0, 10))
+    step_n = np.power(2, np.arange(0, 9))
     alphas = np.arange(0.1, 1.1, 0.1)
 
     average_rewards = np.zeros((len(step_n), len(alphas)))
@@ -147,7 +143,7 @@ if __name__ == '__main__':
 
     plt.xlabel('스텝 사이즈(alpha)')
     plt.ylabel('episode 평균 reward')
-    plt.ylim([-7, -5])
+    plt.ylim([-10, -5])
     plt.legend()
 
     plt.savefig('images/n_step_sarsa_for_grid_world.png')
