@@ -11,22 +11,22 @@ PLAYER_2 = -1
 #########################################################
 class State:
     def __init__(self, board_rows=3, board_cols=3):
-        # 게임판은 n * n 크기의 배열로 표현
+        # 게임판은 board_rows * board_cols 크기의 배열로 표현
         # 게임판에서 플레이어는 정수값으로 구분
         # 1 : 선공 플레이어, -1 : 후공 플레이어, 0 : 초기 공백 상태
-        self.data = np.zeros((board_rows, board_cols))
-        self.winner = None
-        self.hash_val = None  # 게임의 각 상태들을 구분짓기 위한 해시값
-        self.end = None
         self.board_rows = board_rows
         self.board_cols = board_cols
         self.board_size = board_rows * board_cols
+
+        self.data = np.zeros([board_rows, board_cols])
+        self.winner = None
+        self.hash_val = None  # 게임의 각 상태들을 구분짓기 위한 해시값
+        self.end = None
 
     # 특정 상태에서의 유일한 해시값 계산
     def hash(self):
         if self.hash_val is None:
             self.hash_val = 0
-            it = np.nditer(self.data)
             for i in range(self.board_rows):
                 for j in range(self.board_cols):
                     self.hash_val = self.hash_val * 3 + self.data[i, j] + 1
@@ -106,6 +106,9 @@ class Board:
         # 발생 가능한 모든 게임 상태 집합
         self.all_states = dict()
         self.all_states[self.initial_state.hash()] = (self.initial_state, self.initial_state.is_end())
+
+        self.generate_all_states(state=self.initial_state, player_int=PLAYER_1)
+        self.generate_all_states(state=self.initial_state, player_int=PLAYER_2)
 
     def get_new_state(self, i, j, state_data, player_int):
         new_state = State()

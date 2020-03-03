@@ -35,10 +35,6 @@ class Player:
         # 탐욕적 방법으로 행동하지 않을 확률
         self.epsilon = epsilon
         self.visited_states = []
-        self.board.generate_all_states(
-            state=self.board.initial_state,
-            player_int=player_int
-        )
 
     def reset(self):
         self.visited_states.clear()
@@ -93,7 +89,7 @@ class Player:
                     new_state_hash = new_state.hash()
 
                     if new_state_hash not in self.board.all_states:
-                        print(self.player_int)
+                        print(self.player_int, new_state, new_state_hash)
 
                     assert new_state_hash in self.board.all_states
                     possible_states.append(new_state_hash)
@@ -374,6 +370,6 @@ def draw_figure_after_train(episode_list, tie_rate_list, player1_win_rate_list, 
 
 
 if __name__ == '__main__':
-    #train(max_episodes=50000)
-    #self_play(turns=1000)
+    train(max_episodes=50000)
+    self_play(turns=1000)
     play_with_human()
