@@ -12,7 +12,7 @@ logger = get_logger("mctc")
 
 
 class Node:
-    def __init__(self, position=None, parent=None, env=None):
+    def __init__(self, position=-1, parent=None, env=None):
         self.position = position
         self.parent_node = parent
         self.child_nodes = []
@@ -36,7 +36,7 @@ class Node:
         self.wins += result
 
     def __repr__(self):
-        return "[Position: {0}, Wins/Visits: {1}/{2}, Untried Positions: {3}]".format(
+        return "[Position: {0:4}, Wins/Visits: {1:3.2f}/{2:3.2f}, Untried Positions: {3}]".format(
             self.position, self.wins, self.visits, self.untried_positions
         )
 
@@ -57,33 +57,46 @@ def UCT(env, itermax):
         env_copied = copy.deepcopy(env)
 
         # Selection
-        while node_last_visited.untried_positions == [] and node_last_visited.child_nodes != []:
-            logger.info("Iter {0:4}: Environment's Current State: {1} - {2:>15}".format(i, env_copied.current_state, "Selection"))
+        while not node_last_visited.untried_positions and node_last_visited.child_nodes:
+            env_current_state = env_copied.current_state.copy()
             node_last_visited = node_last_visited.select_child_uct()
             env_copied.do_move(node_last_visited.position)
+            logger.info("Iter {0:4}: Copied Environment State: {1} - {2:>15} - Node Last Visited: {3}".format(
+                i, env_current_state, "Selection", node_last_visited
+            ))
 
         # Expansion
         if node_last_visited.untried_positions:
-            logger.info("Iter {0:4}: Environment's Current State: {1} - {2:>15}".format(i, env_copied.current_state, "Expansion"))
+            env_current_state = env_copied.current_state.copy()
             new_position = random.choice(node_last_visited.untried_positions)
             env_copied.do_move(new_position)
             node_last_visited = node_last_visited.append_child(new_position, env_copied)
+            logger.info("Iter {0:4}: Copied Environment State: {1} - {2:>15} - Node Last Visited: {3}".format(
+                i, env_current_state, "Expansion", node_last_visited
+            ))
 
         # Simulation
-        # [주의] Node는 새롭게 생성하지 않고 Environment에서만 마지막 말단 노드까지 이동
+        # [주의] Node는 새롭게 생성하지 않고 Copied Environment에서만 마지막 말단 노드까지 이동
         while env_copied.get_available_positions():
-            logger.info("Iter {0:4}: Environment's Current State: {1} - {2:>15}".format(i, env_copied.current_state, "Simulation"))
+            env_current_state = env_copied.current_state.copy()
             env_copied.do_move(random.choice(env_copied.get_available_positions()))
+            logger.info("Iter {0:4}: Copied Environment State: {1} - {2:>15} - Node Last Visited: {3}".format(
+                i, env_current_state, "Simulation", node_last_visited
+            ))
 
         # BackPropagation
         while node_last_visited is not None:
-            logger.info("Iter {0:4}: Environment's Current State: {1} - {2:>15}".format(i, env_copied.current_state, "Backpropagation"))
+            env_current_state = env_copied.current_state.copy()
             node_last_visited.update(env_copied.get_result(node_last_visited.player_just_moved))
+            logger.info("Iter {0:4}: Copied Environment State: {1} - {2:>15} - Node Last Visited: {3}".format(
+                i, env_current_state, "Backpropagation", node_last_visited
+            ))
             node_last_visited = node_last_visited.parent_node
 
         logger.info("")
 
     print(root_node.children_to_str())
+    logger.info(root_node.children_to_str())
 
     s = sorted(root_node.child_nodes, key=lambda c: c.wins / c.visits)
     return sorted(s, key=lambda c: c.visits)[-1].position
@@ -117,5 +130,5 @@ def play_game_utc(human_move_first=True):
 
 
 if __name__ == "__main__":
-    play_game_utc(human_move_first=True)
+    play_game_utc(human_move_first=False)
 
