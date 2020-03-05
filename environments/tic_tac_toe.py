@@ -99,24 +99,16 @@ class Board:
     def __init__(self, board_rows, board_cols):
         # 초기 상태 초기화
         self.initial_player_int = PLAYER_1
-        self.initial_state = State()
         self.board_rows = board_rows
         self.board_cols = board_cols
 
         # 발생 가능한 모든 게임 상태 집합
+        self.initial_state = State()
         self.all_states = dict()
         self.all_states[self.initial_state.hash()] = (self.initial_state, self.initial_state.is_end())
 
         self.generate_all_states(state=self.initial_state, player_int=PLAYER_1)
         self.generate_all_states(state=self.initial_state, player_int=PLAYER_2)
-
-    def get_new_state(self, i, j, state_data, player_int):
-        new_state = State()
-        # 주어진 상태의 게임판 상황 복사
-        new_state.data = np.copy(state_data)
-        # 플레이어의 행동(i, j 위치에 표시) 반영
-        new_state.data[i, j] = player_int
-        return new_state
 
     # 주어진 상태 및 현재 플레이어 심볼에 대하여 발생 가능한 모든 게임 상태 집합 생성
     def generate_all_states(self, state, player_int):
@@ -135,6 +127,14 @@ class Board:
                         # 게임 미종료시 재귀 호출로 새로운 상태 계속 생성
                         if not new_state.is_end():
                             self.generate_all_states(new_state, -player_int)
+
+    def get_new_state(self, i, j, state_data, player_int):
+        new_state = State()
+        # 주어진 상태의 게임판 상황 복사
+        new_state.data = np.copy(state_data)
+        # 플레이어의 행동(i, j 위치에 표시) 반영
+        new_state.data[i, j] = player_int
+        return new_state
 
 
 ################################################################
