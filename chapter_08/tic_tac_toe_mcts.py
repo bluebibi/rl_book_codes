@@ -49,7 +49,7 @@ class Node:
         return str_
 
 
-def UCT(env, itermax):
+def UCT(env, itermax): # Upper Confidence Bounds Applied to Trees
     root_node = Node(env=env)
 
     for i in range(itermax):
