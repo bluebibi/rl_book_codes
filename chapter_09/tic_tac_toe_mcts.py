@@ -49,7 +49,7 @@ class Node:
         return str_
 
 
-def UCT(env, itermax): # Upper Confidence Bounds Applied to Trees
+def position_by_uct(env, itermax): # Upper Confidence Bounds Applied to Trees
     root_node = Node(env=env)
 
     for i in range(itermax):
@@ -102,7 +102,7 @@ def UCT(env, itermax): # Upper Confidence Bounds Applied to Trees
     return sorted(s, key=lambda c: c.visits)[-1].position
 
 
-def play_game_utc(human_move_first=True):
+def play_game_uct(human_move_first=True):
     player_just_moved = PLAYER_2 if human_move_first else PLAYER_1
     env = SimpleTicTacToe(player_just_moved=player_just_moved)
 
@@ -110,7 +110,7 @@ def play_game_utc(human_move_first=True):
         print(env)
 
         if env.player_just_moved == PLAYER_1:
-            new_position = UCT(env, itermax=3000)
+            new_position = position_by_uct(env, itermax=3000)
         else:
             new_position = int(input("which position do you want to move? : "))
         print("Best Move : {0}\n".format(new_position))
@@ -123,12 +123,11 @@ def play_game_utc(human_move_first=True):
     elif env.get_result(env.player_just_moved) == 0.0:
         print(env)
         print("Payer {0} Wins!".format(3 - env.player_just_moved))
-
     else:
         print(env)
         print("Draw!!")
 
 
 if __name__ == "__main__":
-    play_game_utc(human_move_first=False)
+    play_game_uct(human_move_first=False)
 

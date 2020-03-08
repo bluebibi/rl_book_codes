@@ -5,7 +5,8 @@ import matplotlib.pyplot as plt
 import os
 
 # 이미지 저장 경로 확인 및 생성
-from environments.tic_tac_toe import TicTacToe
+from environments.tic_tac_toe import TicTacToe, INITIAL_STATE, ALL_STATES, PLAYER_1, PLAYER_2, generate_all_states, \
+    get_new_state, BOARD_ROWS, BOARD_COLS
 
 if not os.path.exists('images/'):
     os.makedirs('images/')
@@ -14,17 +15,11 @@ plt.rcParams["font.family"] = 'NanumBarunGothic'
 plt.rcParams["font.size"] = 12
 mpl.rcParams['axes.unicode_minus'] = False
 
-PLAYER_1 = 1
-PLAYER_2 = -1
-
 
 class Player:
-    def __init__(self, player_int, board, step_size=0.1, epsilon=0.1):
+    def __init__(self, player_int, step_size=0.1, epsilon=0.1):
         # Player_1(선공), Player_2(후공) 구분을 위한 값
         self.player_int = player_int
-
-        # 게임 보드
-        self.board = board
 
         # 특정 상태에서의 가치 함수들의 집합
         self.estimated_values = dict()
@@ -38,28 +33,28 @@ class Player:
 
     def reset(self):
         self.visited_states.clear()
-        self.append_state(self.board.initial_state)
+        self.append_state(INITIAL_STATE)
 
     def append_state(self, state):
         self.visited_states.append(state)
 
     def initialize_estimated_values(self):
         # 가치 함수 초기화
-        for hash_val in self.board.all_states:
-            state, is_end = self.board.all_states[hash_val]
+        for state_identifier in ALL_STATES:
+            state, is_end = ALL_STATES[state_identifier]
             if is_end:
                 if state.winner == self.player_int:
-                    self.estimated_values[hash_val] = 1.0
+                    self.estimated_values[state_identifier] = 1.0
                 elif state.winner == 0:
-                    self.estimated_values[hash_val] = 0.5
+                    self.estimated_values[state_identifier] = 0.5
                 else:
-                    self.estimated_values[hash_val] = 0
+                    self.estimated_values[state_identifier] = 0
             else:
-                self.estimated_values[hash_val] = 0.5
+                self.estimated_values[state_identifier] = 0.5
 
     # 게임 1회 종료 후 가치 함수 갱신
     def update_estimated_values(self):
-        states_hash_values = [state.hash() for state in self.visited_states]
+        states_hash_values = [state.identifier() for state in self.visited_states]
 
         # 게임 처음 상태부터 마지막 상태까지의 역순으로
         for i in reversed(range(len(states_hash_values) - 1)):
@@ -81,17 +76,17 @@ class Player:
         possible_states = []
         possible_positions = []
 
-        for i in range(self.board.board_rows):
-            for j in range(self.board.board_cols):
+        for i in range(BOARD_ROWS):
+            for j in range(BOARD_COLS):
                 if state.data[i, j] == 0:
                     possible_positions.append([i, j])
-                    new_state = self.board.get_new_state(i, j, state.data, self.player_int)
-                    new_state_hash = new_state.hash()
+                    new_state = get_new_state(i, j, state.data, self.player_int)
+                    new_state_hash = new_state.identifier()
 
-                    if new_state_hash not in self.board.all_states:
+                    if new_state_hash not in ALL_STATES:
                         print(self.player_int, new_state, new_state_hash)
 
-                    assert new_state_hash in self.board.all_states
+                    assert new_state_hash in ALL_STATES
                     possible_states.append(new_state_hash)
 
         # epsilon 값에 의해 확률적으로 임의의 행동 수행
@@ -100,8 +95,8 @@ class Player:
             return i, j
 
         next_states = []
-        for hash_val, pos in zip(possible_states, possible_positions):
-            next_states.append((self.estimated_values[hash_val], pos))
+        for state_identifier, pos in zip(possible_states, possible_positions):
+            next_states.append((self.estimated_values[state_identifier], pos))
 
         # 다음 상태 중 무작위로 행동을 선택하기 위해 shuffle 호출
         np.random.shuffle(next_states)
@@ -129,23 +124,20 @@ class Player:
 # | a | s | d |
 # | z | x | c |
 class Human_Player:
-    def __init__(self, player_int, board):
+    def __init__(self, player_int):
         self.player_int = player_int
-
-        # 게임 보드
-        self.board = board
 
         self.keys = ['q', 'w', 'e', 'a', 's', 'd', 'z', 'x', 'c']
         self.state = None
-        self.env = TicTacToe(board_rows=3, board_cols=3)
+        self.env = TicTacToe()
 
-        self.board.generate_all_states(
-            state=self.board.initial_state,
+        generate_all_states(
+            state=INITIAL_STATE,
             player_int=player_int
         )
 
     def reset(self):
-        self.append_state(self.board.initial_state)
+        self.append_state(INITIAL_STATE)
 
     def append_state(self, state):
         self.state = state
@@ -156,8 +148,8 @@ class Human_Player:
         while True:
             if key in self.keys:
                 data = self.keys.index(key)
-                i = data // self.board.board_cols
-                j = data % self.board.board_cols
+                i = data // BOARD_COLS
+                j = data % BOARD_COLS
                 return i, j
 
             elif key == 'exit':
@@ -170,14 +162,13 @@ class Human_Player:
 # 훈련
 def train(max_episodes, print_every_n=500):
     epsilon = 0.01  # 탐욕적 방법을 따르지 않고 무작위로 행동할 확률
-    env = TicTacToe(board_rows=3, board_cols=3)
+    env = TicTacToe()
 
-    player_1 = Player(PLAYER_1, env.board, epsilon=epsilon) # 선공 플레이어. 정수값 1로 표현
-    player_2 = Player(PLAYER_2, env.board, epsilon=epsilon) # 후공 플레이어. 정수값 -1로 표현
+    player_1 = Player(PLAYER_1, epsilon=epsilon) # 선공 플레이어. 정수값 1로 표현
+    player_2 = Player(PLAYER_2, epsilon=epsilon) # 후공 플레이어. 정수값 -1로 표현
 
     player_1.initialize_estimated_values()
     player_2.initialize_estimated_values()
-    print("총 상태 개수: {0}".format(len(env.board.all_states)))
     print("Player 1 - 내부 사용 정수값: {0}".format(player_1.player_int))
     print("Player 2 - 내부 사용 정수값: {0}".format(player_2.player_int))
 
@@ -250,10 +241,10 @@ def train(max_episodes, print_every_n=500):
 # 학습이 끝난 정책으로 에이전트끼리 경쟁
 def self_play(turns):
     epsilon = 0.0  # epsilon = 0이므로 학습된 정책대로만 행동
-    env = TicTacToe(board_rows=3, board_cols=3)
+    env = TicTacToe()
 
-    player_1 = Player(PLAYER_1, env.board, epsilon=epsilon) # 선공 플레이어. 정수값 1로 표현
-    player_2 = Player(PLAYER_2, env.board, epsilon=epsilon) # 후공 플레이어. 정수값 -1로 표현
+    player_1 = Player(PLAYER_1, epsilon=epsilon) # 선공 플레이어. 정수값 1로 표현
+    player_2 = Player(PLAYER_2, epsilon=epsilon) # 후공 플레이어. 정수값 -1로 표현
 
     player_1.load_policy()  # 저장된 정책 불러오기
     player_2.load_policy()
@@ -308,11 +299,11 @@ def self_play(turns):
 # 그러므로 인공지능이 후공일 때 최소한 무승부가 되는지 확인
 def play_with_human():
     epsilon = 0.0
-    env = TicTacToe(board_rows=3, board_cols=3)
+    env = TicTacToe()
     env.reset()
 
-    player_1 = Human_Player(PLAYER_1, env.board)
-    player_2 = Player(PLAYER_2, env.board, epsilon=epsilon)
+    player_1 = Human_Player(PLAYER_1)
+    player_2 = Player(PLAYER_2, epsilon=epsilon)
     player_1.reset()
     player_2.reset()
     player_2.load_policy()
@@ -370,6 +361,7 @@ def draw_figure_after_train(episode_list, tie_rate_list, player1_win_rate_list, 
 
 
 if __name__ == '__main__':
+    print("총 상태 개수: {0}".format(len(ALL_STATES)))
     train(max_episodes=50000)
     self_play(turns=1000)
     play_with_human()

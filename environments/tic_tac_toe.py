@@ -1,9 +1,50 @@
 import gym
 import numpy as np
 
-PLAYER_TO_SYMBOL = ['*', 'O', 'X']
-PLAYER_1 = 1
-PLAYER_2 = -1
+
+################################################################
+# 플레이어 1,2 간의 게임 진행을 담당하는 Env 클래스
+class TicTacToe(gym.Env):
+    def __init__(self):
+        self.BOARD_SIZE = BOARD_ROWS * BOARD_COLS
+        self.current_state = None
+        self.current_player_int = None
+
+    def reset(self):
+        self.current_player_int = PLAYER_1
+        self.current_state = INITIAL_STATE
+
+    # 게임 진행을 위해 턴마다 호출
+    def step(self, action=None):
+        # 플레이어의 행동에 의한 다음 상태 갱신
+        next_state_hash = get_new_state(
+            action[0],
+            action[1],
+            self.current_state.data,
+            self.current_player_int
+        ).identifier()
+
+        assert next_state_hash in ALL_STATES
+
+        next_state, done = ALL_STATES[next_state_hash]
+
+        if done:
+            info = {'winner': next_state.winner}
+        else:
+            info = None
+
+        self.current_state = next_state
+        reward = 0.0
+
+        if self.current_player_int == PLAYER_1:
+            self.current_player_int = PLAYER_2
+        else:
+            self.current_player_int = PLAYER_1
+
+        return next_state, reward, done, info
+
+    def render(self, mode='human'):
+        self.current_state.print_board()
 
 
 #########################################################
@@ -23,8 +64,8 @@ class State:
         self.hash_val = None  # 게임의 각 상태들을 구분짓기 위한 해시값
         self.end = None
 
-    # 특정 상태에서의 유일한 해시값 계산
-    def hash(self):
+    # 특정 상태에서의 유일한 ID값 계산
+    def identifier(self):
         if self.hash_val is None:
             self.hash_val = 0
             for i in range(self.board_rows):
@@ -95,89 +136,45 @@ class State:
         return self_str
 
 
-class Board:
-    def __init__(self, board_rows, board_cols):
-        # 초기 상태 초기화
-        self.initial_player_int = PLAYER_1
-        self.board_rows = board_rows
-        self.board_cols = board_cols
+# 주어진 상태 및 현재 플레이어 심볼에 대하여 발생 가능한 모든 게임 상태 집합 생성
+def generate_all_states(state, player_int):
+    for i in range(BOARD_ROWS):
+        for j in range(BOARD_COLS):
+            if state.data[i][j] == 0:
+                # 도달 가능한 새로운 상태 생성
+                new_state = get_new_state(i, j, state.data, player_int)
 
-        # 발생 가능한 모든 게임 상태 집합
-        self.initial_state = State()
-        self.all_states = dict()
-        self.all_states[self.initial_state.hash()] = (self.initial_state, self.initial_state.is_end())
+                # 새로운 상태의 해시값 가져오기
+                new_hash = new_state.identifier()
 
-        self.generate_all_states(state=self.initial_state, player_int=PLAYER_1)
-        self.generate_all_states(state=self.initial_state, player_int=PLAYER_2)
-
-    # 주어진 상태 및 현재 플레이어 심볼에 대하여 발생 가능한 모든 게임 상태 집합 생성
-    def generate_all_states(self, state, player_int):
-        for i in range(self.board_rows):
-            for j in range(self.board_cols):
-                if state.data[i][j] == 0:
-                    # 도달 가능한 새로운 상태 생성
-                    new_state = self.get_new_state(i, j, state.data, player_int)
-
-                    # 새로운 상태의 해시값 가져오기
-                    new_hash = new_state.hash()
-
-                    if new_hash not in self.all_states:
-                        # 모든 게임 상태 집합 갱신
-                        self.all_states[new_hash] = (new_state, new_state.is_end())
-                        # 게임 미종료시 재귀 호출로 새로운 상태 계속 생성
-                        if not new_state.is_end():
-                            self.generate_all_states(new_state, -player_int)
-
-    def get_new_state(self, i, j, state_data, player_int):
-        new_state = State()
-        # 주어진 상태의 게임판 상황 복사
-        new_state.data = np.copy(state_data)
-        # 플레이어의 행동(i, j 위치에 표시) 반영
-        new_state.data[i, j] = player_int
-        return new_state
+                if new_hash not in ALL_STATES:
+                    # 모든 게임 상태 집합 갱신
+                    ALL_STATES[new_hash] = (new_state, new_state.is_end())
+                    # 게임 미종료시 재귀 호출로 새로운 상태 계속 생성
+                    if not new_state.is_end():
+                        generate_all_states(new_state, -player_int)
 
 
-################################################################
-# 플레이어 1,2 간의 게임 진행을 담당하는 Env 클래스
-class TicTacToe(gym.Env):
-    def __init__(self, board_rows=3, board_cols=3):
-        self.board = Board(board_rows, board_cols)
-        self.BOARD_SIZE = board_rows * board_cols
-        self.current_state = None
-        self.current_player_int = None
+def get_new_state(i, j, state_data, player_int):
+    new_state = State()
+    # 주어진 상태의 게임판 상황 복사
+    new_state.data = np.copy(state_data)
+    # 플레이어의 행동(i, j 위치에 표시) 반영
+    new_state.data[i, j] = player_int
+    return new_state
 
-    def reset(self):
-        self.current_player_int = PLAYER_1
-        self.current_state = self.board.initial_state
 
-    # 게임 진행을 위해 턴마다 호출
-    def step(self, action=None):
-        # 플레이어의 행동에 의한 다음 상태 갱신
-        next_state_hash = self.board.get_new_state(
-            action[0],
-            action[1],
-            self.current_state.data,
-            self.current_player_int
-        ).hash()
+PLAYER_TO_SYMBOL = ['*', 'O', 'X']
+PLAYER_1 = 1
+PLAYER_2 = -1
+BOARD_ROWS = 3
+BOARD_COLS = 3
 
-        assert next_state_hash in self.board.all_states
+INITIAL_PLAYER_INT = PLAYER_1
 
-        next_state, done = self.board.all_states[next_state_hash]
+INITIAL_STATE = State()
+ALL_STATES = {INITIAL_STATE.identifier(): (INITIAL_STATE, INITIAL_STATE.is_end())}
 
-        if done:
-            info = {'winner': next_state.winner}
-        else:
-            info = None
+generate_all_states(state=INITIAL_STATE, player_int=PLAYER_1)
+generate_all_states(state=INITIAL_STATE, player_int=PLAYER_2)
 
-        self.current_state = next_state
-        reward = 0.0
-
-        if self.current_player_int == PLAYER_1:
-            self.current_player_int = PLAYER_2
-        else:
-            self.current_player_int = PLAYER_1
-
-        return next_state, reward, done, info
-
-    def render(self, mode='human'):
-        self.current_state.print_board()
