@@ -1,7 +1,6 @@
-# -*- coding:utf-8 -*-
 """
 ###############################################################################################
-    10-Armed Testbed (Reinforcement Learning: An Introduction, Sutton, Barto, fig 2.2)
+    10-Armed Testbed (Reinforcement Learning: An Introduction, Sutton, Barto)
     Created by Youn-Hee Han 12/27/2019, last update 12/27/2019
 
     코드 참고 사이트:
@@ -11,9 +10,13 @@
 
 import numpy as np
 import matplotlib.pyplot as plt
-import time
+import os
 import matplotlib as mpl
 from enum import Enum
+
+# 이미지 저장 경로 확인 및 생성
+if not os.path.exists('images/'):
+    os.makedirs('images/')
 
 plt.rcParams["font.family"] = 'NanumBarunGothic'
 plt.rcParams["font.size"] = 12
