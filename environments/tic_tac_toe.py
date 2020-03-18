@@ -1,6 +1,12 @@
 import gym
 import numpy as np
 
+PLAYER_TO_SYMBOL = ['*', 'O', 'X']
+PLAYER_1 = 1
+PLAYER_2 = -1
+BOARD_ROWS = 3
+BOARD_COLS = 3
+
 
 ################################################################
 # 플레이어 1,2 간의 게임 진행을 담당하는 Env 클래스
@@ -116,6 +122,12 @@ class State:
         self.end = False
         return self.end
 
+    def get_available_positions(self):
+        if self.is_end():
+            return []
+        else:
+            return [[i, j] for i in range(BOARD_ROWS) for j in range(BOARD_COLS) if self.data[i, j] == 0]
+
     # 게임판 출력
     def print_board(self):
         for i in range(self.board_rows):
@@ -164,17 +176,9 @@ def get_new_state(i, j, state_data, player_int):
     return new_state
 
 
-PLAYER_TO_SYMBOL = ['*', 'O', 'X']
-PLAYER_1 = 1
-PLAYER_2 = -1
-BOARD_ROWS = 3
-BOARD_COLS = 3
-
-INITIAL_PLAYER_INT = PLAYER_1
-
 INITIAL_STATE = State()
 ALL_STATES = {INITIAL_STATE.identifier(): (INITIAL_STATE, INITIAL_STATE.is_end())}
 
-generate_all_states(state=INITIAL_STATE, player_int=PLAYER_1)
-generate_all_states(state=INITIAL_STATE, player_int=PLAYER_2)
+generate_all_states(state=State(), player_int=PLAYER_1)
+generate_all_states(state=State(), player_int=PLAYER_2)
 
