@@ -1,7 +1,6 @@
-# -*- coding:utf-8 -*-
 """
 ###############################################################################################
-    10-Armed Testbed (Reinforcement Learning: An Introduction, Sutton, Barto, fig 2.2)
+    10-Armed Testbed (Reinforcement Learning: An Introduction, Sutton, Barto)
     Created by Youn-Hee Han 12/27/2019, last update 12/27/2019
 
     코드 참고 사이트:
@@ -11,9 +10,13 @@
 
 import numpy as np
 import matplotlib.pyplot as plt
-import time
+import os
 import matplotlib as mpl
 from enum import Enum
+
+# 이미지 저장 경로 확인 및 생성
+if not os.path.exists('images/'):
+    os.makedirs('images/')
 
 plt.rcParams["font.family"] = 'NanumBarunGothic'
 plt.rcParams["font.size"] = 12
@@ -187,6 +190,7 @@ class Bandit(object):
                 baseline = 0
             self.q_estimation += self.constant_step_size * (reward - baseline) * (one_hot - self.action_prob)
 
+        print(self.q_estimation)
         return reward
 
 
@@ -546,7 +550,7 @@ if __name__ == '__main__':
     # prob_distribution_of_rewards()
     # greedy_and_epsilon_greedy(max_runs=2000, max_time_steps=1000)
     # greedy_and_epsilon_greedy(max_runs=2000, max_time_steps=4000)
-    #q_estimation_initial(max_runs=2000, max_time_steps=1000)
-    ucb_section(max_runs=2000, max_time_steps=1000)
+    q_estimation_initial(max_runs=2000, max_time_steps=1000)
+    #ucb_section(max_runs=2000, max_time_steps=1000)
     #gradients(max_runs=2000, max_time_steps=1000)
     #comparison_of_all_methods(max_runs=2000, max_time_steps=1000)
