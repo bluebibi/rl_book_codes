@@ -19,7 +19,8 @@ class GridWorld(gym.Env):
             start_state=(0, 0),
             terminal_state=[(4, 4)],
             transition_reward=0.0,
-            terminal_reward=1.0
+            terminal_reward=1.0,
+            unique_steps=[]
     ):
         self.__version__ = "0.0.1"
 
@@ -57,6 +58,9 @@ class GridWorld(gym.Env):
         ]
         self.observation_space.num_actions = len(self.observation_space.ACTIONS)
 
+        # 기본 GridWorld 에 추가되는 환경 조건들 집합
+        self.unique_steps = unique_steps
+
         # 시작 상태 위치
         self.observation_space.START_STATE = start_state
 
@@ -80,6 +84,15 @@ class GridWorld(gym.Env):
     # @return: (reward, new state)
     def step(self, action):
         x, y = self.current_state
+
+        # 기본 GridWorld에 추가된 조건들(ex. 함정, 웜홀 등) 적용
+        # unique_step은 추가 조건 판정 및 수행에 관여하는 사용자 정의 함수
+        # info['exec'] 로 추가 조건이 수행되었는지를 판정한다.
+        for unique_step in self.unique_steps:
+            (x, y), reward, done, info = unique_step((x, y), action)
+            if info and info['exec']:
+                return (x, y), reward, done, None
+
         if action == self.observation_space.ACTION_UP:
             x = max(x - 1, 0)
         elif action == self.observation_space.ACTION_DOWN:
