@@ -2,43 +2,12 @@ import matplotlib.pyplot as plt
 import numpy as np
 import os
 from matplotlib.table import Table
+from environments.gridworld import GridWorld
 
 GRID_HEIGHT = 4
 GRID_WIDTH = 4
-
-# 상, 좌, 하, 우 이동을 나타내는 배열
-ACTIONS = [
-    np.array([0, -1]),
-    np.array([-1, 0]),
-    np.array([0, 1]),
-    np.array([1, 0])
-]
+TERMINAL_STATE = [(0, 0), (GRID_HEIGHT-1, GRID_WIDTH-1)]
 ACTION_PROBABILITY = 0.25
-
-
-# 종료 상태인지 검사하는 함수
-def is_terminal(state):
-    x, y = state
-    return (x == 0 and y == 0) or (x == GRID_WIDTH - 1 and y == GRID_HEIGHT - 1)
-
-
-# 에이전트가 상태 state(t) 에서 행동 action을 했을 때의 결과로 나타나는
-# 다음 상태 next_state와 보상 reward를 반환하는 함수
-def step(state, action):
-    if is_terminal(state):
-        return state, 0
-
-    # ACTIONS 배열에서 행동에 따른 x, y축 이동을 값으로 저장했으므로
-    # 현재 상태(x, y 좌표)에서 해당 값을 더해주는 것으로 다음 상태를 표현
-    next_state = (np.array(state) + action).tolist()
-    x, y = next_state
-
-    if x < 0 or x >= GRID_WIDTH or y < 0 or y >= GRID_HEIGHT:
-        next_state = state
-
-    # 이동에 드는 비용은 -1로 고정
-    reward = -1
-    return next_state, reward
 
 
 # 학습 이후의 가치함수를 표 형태로 그리는 함수
@@ -84,9 +53,14 @@ def compute_state_value(in_place=True, discounting_rate=1.0):
 
         for i in range(GRID_HEIGHT):
             for j in range(GRID_WIDTH):
+                env = GridWorld(height=GRID_HEIGHT, width=GRID_WIDTH, start_state=(i, j),
+                                terminal_state=TERMINAL_STATE, transition_reward=-1, terminal_reward=-1)
+
                 value = 0
-                for action in ACTIONS:
-                    (next_i, next_j), reward = step([i, j], action)
+                for action in env.observation_space.ACTIONS:
+                    env.reset()
+                    (next_i, next_j), reward, done, _ = ((i, j), 0, None, None) if (i, j) in TERMINAL_STATE else env.step(action)
+
                     # 모든 행동에 대해 그 행동의 확률, 행동 이후의 누적 기대 보상을 상태 가치 갱신에 사용
                     value += ACTION_PROBABILITY * (reward + discounting_rate * state_values[next_i, next_j])
                 new_state_values[i, j] = value
