@@ -40,6 +40,9 @@ def compute_state_value(in_place=True, discounting_rate=1.0):
     # 모든 값이 0으로 채워진 4x4 맵 생성, 상태 가치 함수로 해석
     new_state_values = np.zeros((GRID_HEIGHT, GRID_WIDTH))
     iteration = 0
+    env = GridWorld(height=GRID_HEIGHT, width=GRID_WIDTH, start_state=(0, 0),
+                    terminal_state=TERMINAL_STATE, transition_reward=-1, terminal_reward=-1)
+    env.reset()
 
     # 가치 함수의 값들이 수렴할 때까지 반복
     while True:
@@ -53,12 +56,9 @@ def compute_state_value(in_place=True, discounting_rate=1.0):
 
         for i in range(GRID_HEIGHT):
             for j in range(GRID_WIDTH):
-                env = GridWorld(height=GRID_HEIGHT, width=GRID_WIDTH, start_state=(i, j),
-                                terminal_state=TERMINAL_STATE, transition_reward=-1, terminal_reward=-1)
-
                 value = 0
                 for action in env.observation_space.ACTIONS:
-                    env.reset()
+                    env.moveto((i, j))
                     (next_i, next_j), reward, done, _ = ((i, j), 0, None, None) if (i, j) in TERMINAL_STATE else env.step(action)
 
                     # 모든 행동에 대해 그 행동의 확률, 행동 이후의 누적 기대 보상을 상태 가치 갱신에 사용
