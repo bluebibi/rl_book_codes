@@ -80,6 +80,9 @@ class GridWorld(gym.Env):
         self.current_state = self.observation_space.START_STATE
         return self.current_state
 
+    def moveto(self, state):
+        self.current_state = state
+
     # take @action in @state
     # @return: (reward, new state)
     def step(self, action):

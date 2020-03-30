@@ -79,6 +79,9 @@ def draw_image(image):
 def grid_world_state_values():
     # 모든 값이 0으로 채워진 5x5 맵 생성, 가치 함수로 해석
     value_function = np.zeros((GRID_HEIGHT, GRID_WIDTH))
+    env = GridWorld(height=GRID_HEIGHT, width=GRID_WIDTH, start_state=(0, 0), terminal_state=[], transition_reward=0, terminal_reward=0,
+                    unique_steps=[unique_step_wormhole, unique_step_desert])
+    env.reset()
 
     # 가치 함수의 값들이 수렴할 때까지 반복
     while True:
@@ -86,12 +89,9 @@ def grid_world_state_values():
         new_value_function = np.zeros_like(value_function)
         for i in range(GRID_HEIGHT):
             for j in range(GRID_WIDTH):
-                env = GridWorld(height=GRID_HEIGHT, width=GRID_WIDTH, start_state=(i, j), terminal_state=[], transition_reward=0, terminal_reward=0,
-                                unique_steps=[unique_step_wormhole, unique_step_desert])
-
                 # 현재 상태에서 가능한 모든 행동들의 결과로 다음 상태들을 갱신
-                for action in env.action_space.ACTIONS:
-                    env.reset()
+                for action in env.observation_space.ACTIONS:
+                    env.moveto((i, j))
                     (next_i, next_j), reward, _, _ = env.step(action)
                     # Bellman-Equation, 벨만 방정식 적용
                     # 모든 행동에 대해 그 행동의 확률, 행동 이후의 누적 기대 보상을 갱신에 사용
@@ -112,17 +112,18 @@ def grid_world_state_values():
 def grid_world_optimal_values():
     # 모든 값이 0으로 채워진 5x5 맵 생성, 가치 함수로 해석
     value_function = np.zeros((GRID_HEIGHT, GRID_WIDTH))
+    env = GridWorld(height=GRID_HEIGHT, width=GRID_WIDTH, start_state=(0, 0), terminal_state=[], transition_reward=0, terminal_reward=0,
+                    unique_steps=[unique_step_wormhole, unique_step_desert])
+    env.reset()
 
     # 가치 함수의 값들이 수렴할 때까지 반복
     while True:
         new_value_function = np.zeros_like(value_function)
         for i in range(GRID_HEIGHT):
             for j in range(GRID_WIDTH):
-                env = GridWorld(height=GRID_HEIGHT, width=GRID_WIDTH, start_state=(i, j), terminal_state=[], transition_reward=0, terminal_reward=0,
-                                unique_steps=[unique_step_wormhole, unique_step_desert])
                 values = []
-                for action in env.action_space.ACTIONS:
-                    env.reset()
+                for action in env.observation_space.ACTIONS:
+                    env.moveto((i, j))
                     (next_i, next_j), reward, _, _ = env.step(action)
                     # Value-Iteration 기법 적용
                     values.append(reward + DISCOUNTING_RATE * value_function[next_i, next_j])
