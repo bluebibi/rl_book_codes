@@ -90,7 +90,7 @@ def grid_world_state_values():
                                 unique_steps=[unique_step_wormhole, unique_step_desert])
 
                 # 현재 상태에서 가능한 모든 행동들의 결과로 다음 상태들을 갱신
-                for action in env.observation_space.ACTIONS:
+                for action in env.action_space.ACTIONS:
                     env.reset()
                     (next_i, next_j), reward, _, _ = env.step(action)
                     # Bellman-Equation, 벨만 방정식 적용
@@ -121,7 +121,7 @@ def grid_world_optimal_values():
                 env = GridWorld(height=GRID_HEIGHT, width=GRID_WIDTH, start_state=(i, j), terminal_state=[], transition_reward=0, terminal_reward=0,
                                 unique_steps=[unique_step_wormhole, unique_step_desert])
                 values = []
-                for action in env.observation_space.ACTIONS:
+                for action in env.action_space.ACTIONS:
                     env.reset()
                     (next_i, next_j), reward, _, _ = env.step(action)
                     # Value-Iteration 기법 적용

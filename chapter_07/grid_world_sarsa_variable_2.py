@@ -18,7 +18,7 @@ STEP_N_MAX = 9
 def state_action_value(env):
     q = dict()
     for state in env.observation_space.STATES:
-        for action in env.observation_space.ACTIONS:
+        for action in env.action_space.ACTIONS:
             q[(state, action)] = np.random.normal()
     return q
 
@@ -26,7 +26,7 @@ def state_action_value(env):
 def n_state_action_value(env):
     N = dict()
     for state in env.observation_space.STATES:
-        for action in env.observation_space.ACTIONS:
+        for action in env.action_space.ACTIONS:
             for n in range(1, STEP_N_MAX + 1):
                 N[(state, action, n)] = np.random.normal()
     return N
@@ -40,7 +40,7 @@ def generate_greedy_policy(env, Q):
         q_values = []
         prob = []
 
-        for action in env.observation_space.ACTIONS:
+        for action in env.action_space.ACTIONS:
             actions.append(action)
             q_values.append(Q[state, action])
 
@@ -58,7 +58,7 @@ def generate_greedy_policy(env, Q):
 def e_greedy(env, e, q, state):
     action_values = []
     prob = []
-    for action in env.observation_space.ACTIONS:
+    for action in env.action_space.ACTIONS:
         action_values.append(q[(state, action)])
 
     for i in range(len(action_values)):
@@ -66,7 +66,7 @@ def e_greedy(env, e, q, state):
             prob.append(1 - e + e/len(action_values))
         else:
             prob.append(e/len(action_values))
-    return env.observation_space.ACTIONS, prob
+    return env.action_space.ACTIONS, prob
 
 
 # ε-탐욕적 정책 생성 함수
@@ -94,7 +94,7 @@ def step_n_e_greedy(e, N, state, action):
 def generate_step_n_e_greedy_policy(env, e, N):
     step_n_policy = dict()
     for state in env.observation_space.STATES:
-        for action in env.observation_space.ACTIONS:
+        for action in env.action_space.ACTIONS:
             step_n_policy[(state, action)] = step_n_e_greedy(e, N, state, action)
     return step_n_policy
 

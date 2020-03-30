@@ -19,7 +19,7 @@ class Maze:
         self.START_STATE = (2, 1)
 
         # 종료 상태 위치
-        self.GOAL_STATES = [(5, 9)]
+        self.TERMINAL_STATES = [(5, 9)]
 
         # 장애물들의 위치
         self.obstacles = [
@@ -56,7 +56,7 @@ class Maze:
         if (x, y) in self.obstacles:
             x, y = state
 
-        if (x, y) in self.GOAL_STATES:
+        if (x, y) in self.TERMINAL_STATES:
             reward = 1.0
         else:
             reward = 0.0
@@ -94,7 +94,7 @@ class ChangingMaze(Maze):
         new_maze.MAZE_WIDTH = self.MAZE_WIDTH * factor
         new_maze.MAZE_HEIGHT = self.MAZE_HEIGHT * factor
         new_maze.START_STATE = [self.START_STATE[0] * factor, self.START_STATE[1] * factor]
-        new_maze.GOAL_STATES = self.extend_state(self.GOAL_STATES[0], factor)
+        new_maze.TERMINAL_STATES = self.extend_state(self.TERMINAL_STATES[0], factor)
         new_maze.obstacles = []
         for state in self.obstacles:
             new_maze.obstacles.extend(self.extend_state(state, factor))

@@ -45,18 +45,18 @@ class GridWorld(gym.Env):
             self.observation_space.STATES.remove(state)
 
         # 모든 가능한 행동
-        self.observation_space.ACTION_UP = 0
-        self.observation_space.ACTION_DOWN = 1
-        self.observation_space.ACTION_LEFT = 2
-        self.observation_space.ACTION_RIGHT = 3
-        self.observation_space.ACTION_SYMBOLS = ["\u2191", "\u2193", "\u2190", "\u2192"]
-        self.observation_space.ACTIONS = [
-            self.observation_space.ACTION_UP,
-            self.observation_space.ACTION_DOWN,
-            self.observation_space.ACTION_LEFT,
-            self.observation_space.ACTION_RIGHT
+        self.action_space.ACTION_UP = 0
+        self.action_space.ACTION_DOWN = 1
+        self.action_space.ACTION_LEFT = 2
+        self.action_space.ACTION_RIGHT = 3
+        self.action_space.ACTION_SYMBOLS = ["\u2191", "\u2193", "\u2190", "\u2192"]
+        self.action_space.ACTIONS = [
+            self.action_space.ACTION_UP,
+            self.action_space.ACTION_DOWN,
+            self.action_space.ACTION_LEFT,
+            self.action_space.ACTION_RIGHT
         ]
-        self.observation_space.num_actions = len(self.observation_space.ACTIONS)
+        self.action_space.num_actions = len(self.action_space.ACTIONS)
 
         # 기본 GridWorld 에 추가되는 환경 조건들 집합
         self.unique_steps = unique_steps
@@ -65,7 +65,7 @@ class GridWorld(gym.Env):
         self.observation_space.START_STATE = start_state
 
         # 종료 상태 위치
-        self.observation_space.GOAL_STATES = terminal_state
+        self.observation_space.TERMINAL_STATES = terminal_state
 
         # 최대 타임 스텝
         self.max_steps = float('inf')
@@ -93,23 +93,23 @@ class GridWorld(gym.Env):
             if info and info['exec']:
                 return (x, y), reward, done, None
 
-        if action == self.observation_space.ACTION_UP:
+        if action == self.action_space.ACTION_UP:
             x = max(x - 1, 0)
-        elif action == self.observation_space.ACTION_DOWN:
+        elif action == self.action_space.ACTION_DOWN:
             x = min(x + 1, self.HEIGHT - 1)
-        elif action == self.observation_space.ACTION_LEFT:
+        elif action == self.action_space.ACTION_LEFT:
             y = max(y - 1, 0)
-        elif action == self.observation_space.ACTION_RIGHT:
+        elif action == self.action_space.ACTION_RIGHT:
             y = min(y + 1, self.WIDTH - 1)
 
-        if (x, y) in self.observation_space.GOAL_STATES:
+        if (x, y) in self.observation_space.TERMINAL_STATES:
             reward = self.terminal_reward
         else:
             reward = self.transition_reward
 
         self.current_state = (x, y)
 
-        if self.current_state in self.observation_space.GOAL_STATES:
+        if self.current_state in self.observation_space.TERMINAL_STATES:
             done = True
         else:
             done = False

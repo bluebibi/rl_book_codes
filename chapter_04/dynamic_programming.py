@@ -57,7 +57,7 @@ def compute_state_value(in_place=True, discounting_rate=1.0):
                                 terminal_state=TERMINAL_STATE, transition_reward=-1, terminal_reward=-1)
 
                 value = 0
-                for action in env.observation_space.ACTIONS:
+                for action in env.action_space.ACTIONS:
                     env.reset()
                     (next_i, next_j), reward, done, _ = ((i, j), 0, None, None) if (i, j) in TERMINAL_STATE else env.step(action)
 

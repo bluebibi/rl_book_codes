@@ -195,7 +195,7 @@ def dyna_q(q_value, model, dyna_maze):
     state = dyna_maze.START_STATE
     steps = 0
     rewards = 0.0
-    while state not in dyna_maze.GOAL_STATES:
+    while state not in dyna_maze.TERMINAL_STATES:
         # 타임 스텝 기록
         steps += 1
         # 행동 얻어오기
@@ -241,7 +241,7 @@ def prioritized_sweeping(q_value, model, dyna_maze):
     # track the backups in planning phase
     backups = 0
 
-    while state not in dyna_maze.GOAL_STATES:
+    while state not in dyna_maze.TERMINAL_STATES:
         steps += 1
 
         # get action
@@ -451,7 +451,7 @@ def changing_maze_dyna_q():
 def shortcut_maze_dyna_q():
     # 시작 위치, 목적지 위치 및 장애물 설정
     shortcut_maze = ChangingMaze()
-    shortcut_maze.GOAL_STATES = [(5, 1)]
+    shortcut_maze.TERMINAL_STATES = [(5, 1)]
     shortcut_maze.original_obstacles = [(3, i) for i in range(0, 9)]
     shortcut_maze.obstacles = shortcut_maze.original_obstacles
 
@@ -494,7 +494,7 @@ def check_path(q_values, dyna_maze):
     max_steps = 14 * dyna_maze.resolution * 1.2
     state = dyna_maze.START_STATE
     steps = 0
-    while state not in dyna_maze.GOAL_STATES:
+    while state not in dyna_maze.TERMINAL_STATES:
         action = np.argmax(q_values[state[0], state[1], :])
         _, state = dyna_maze.step(state, action)
         steps += 1

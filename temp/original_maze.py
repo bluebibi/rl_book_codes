@@ -66,7 +66,7 @@ class Maze:
         self.START_STATE = [2, 0]
 
         # goal state
-        self.GOAL_STATES = [[0, 8]]
+        self.TERMINAL_STATES = [[0, 8]]
 
         # all obstacles
         self.obstacles = [[1, 2], [2, 2], [3, 2], [0, 7], [1, 7], [2, 7], [4, 5]]
@@ -106,7 +106,7 @@ class Maze:
         new_maze.WORLD_WIDTH = self.WORLD_WIDTH * factor
         new_maze.WORLD_HEIGHT = self.WORLD_HEIGHT * factor
         new_maze.START_STATE = [self.START_STATE[0] * factor, self.START_STATE[1] * factor]
-        new_maze.GOAL_STATES = self.extend_state(self.GOAL_STATES[0], factor)
+        new_maze.TERMINAL_STATES = self.extend_state(self.TERMINAL_STATES[0], factor)
         new_maze.obstacles = []
         for state in self.obstacles:
             new_maze.obstacles.extend(self.extend_state(state, factor))
@@ -129,7 +129,7 @@ class Maze:
             y = min(y + 1, self.WORLD_WIDTH - 1)
         if [x, y] in self.obstacles:
             x, y = state
-        if [x, y] in self.GOAL_STATES:
+        if [x, y] in self.TERMINAL_STATES:
             reward = 1.0
         else:
             reward = 0.0
@@ -298,7 +298,7 @@ class PriorityModel(TrivialModel):
 def dyna_q(q_value, model, maze, dyna_params):
     state = maze.START_STATE
     steps = 0
-    while state not in maze.GOAL_STATES:
+    while state not in maze.TERMINAL_STATES:
         # track the steps
         steps += 1
 
@@ -346,7 +346,7 @@ def prioritized_sweeping(q_value, model, maze, dyna_params):
     # track the backups in planning phase
     backups = 0
 
-    while state not in maze.GOAL_STATES:
+    while state not in maze.TERMINAL_STATES:
         steps += 1
 
         # get action
@@ -477,7 +477,7 @@ def figure_8_4():
     # set up a blocking maze instance
     blocking_maze = Maze()
     blocking_maze.START_STATE = [5, 3]
-    blocking_maze.GOAL_STATES = [[0, 8]]
+    blocking_maze.TERMINAL_STATES = [[0, 8]]
     blocking_maze.old_obstacles = [[3, i] for i in range(0, 8)]
 
     # new obstalces will block the optimal path
@@ -518,7 +518,7 @@ def figure_8_5():
     # set up a shortcut maze instance
     shortcut_maze = Maze()
     shortcut_maze.START_STATE = [5, 3]
-    shortcut_maze.GOAL_STATES = [[0, 8]]
+    shortcut_maze.TERMINAL_STATES = [[0, 8]]
     shortcut_maze.old_obstacles = [[3, i] for i in range(1, 9)]
 
     # new obstacles will have a shorter path
@@ -562,7 +562,7 @@ def check_path(q_values, maze):
     max_steps = 14 * maze.resolution * 1.2
     state = maze.START_STATE
     steps = 0
-    while state not in maze.GOAL_STATES:
+    while state not in maze.TERMINAL_STATES:
         action = np.argmax(q_values[state[0], state[1], :])
         state, _ = maze.step(state, action)
         steps += 1
